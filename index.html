@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StockHogar - Gestión de Despensa</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2DD881;
+            --primary-dark: #1FBE6C;
+            --secondary: #FF6B6B;
+            --warning: #FFA94D;
+            --bg-dark: #1A1F2E;
+            --bg-card: #252B3D;
+            --bg-input: #2E3548;
+            --text: #E8EDF3;
+            --text-secondary: #9BA4B5;
+            --border: #3A4056;
+            --success: #51CF66;
+            --danger: #FF6B6B;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: linear-gradient(135deg, #1A1F2E 0%, #252B3D 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+            padding: 20px;
+            box-shadow: 0 4px 20px var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: white;
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:active {
+            transform: scale(0.98);
+        }
+
+        .stat-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'DM Sans', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            color: white;
+            box-shadow: 0 4px 12px rgba(45, 216, 129, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.96);
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        .items-grid {
+            display: grid;
+            gap: 15px;
+            padding: 0 20px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .item-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .item-card:active {
+            transform: scale(0.98);
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .item-name {
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            flex: 1;
+        }
+
+        .item-category {
+            background: var(--bg-input);
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .item-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .info-block {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .info-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .expiry-alert {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 12px;
+            text-align: center;
+        }
+
+        .expiry-critical {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+
+        .expiry-warning {
+            background: rgba(255, 169, 77, 0.2);
+            border: 1px solid var(--warning);
+            color: var(--warning);
+        }
+
+        .expiry-good {
+            background: rgba(45, 216, 129, 0.2);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn-icon {
+            padding: 8px 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            flex: 1;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .btn-icon:active {
+            transform: scale(0.95);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            padding: 20px;
+            overflow-y: auto;
+            animation: fadeIn 0.2s;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 40px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px var(--shadow);
+            animation: slideUp 0.3s;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: var(--bg-input);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 16px;
+            font-family: 'DM Sans', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(45, 216, 129, 0.1);
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            box-shadow: 0 -4px 20px var(--shadow);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            border-radius: 12px;
+            flex: 1;
+            max-width: 100px;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+            background: rgba(45, 216, 129, 0.1);
+        }
+
+        .nav-icon {
+            font-size: 24px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            padding: 0 20px 20px;
+            overflow-x: auto;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .filter-chip {
+            padding: 8px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .filter-chip.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .shopping-list-item {
+            background: var(--bg-card);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .checkbox.checked {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .price-history {
+            background: var(--bg-input);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 12px;
+        }
+
+        .price-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            color: var(--text-secondary);
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            padding: 0 20px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 768px) {
+            .items-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .items-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            color: var(--text);
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px var(--shadow);
+            border: 1px solid var(--border);
+            z-index: 2000;
+            animation: slideUpToast 0.3s;
+            max-width: 90%;
+        }
+
+        @keyframes slideUpToast {
+            from { transform: translate(-50%, 20px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+
+        .category-manager {
+            margin-top: 20px;
+        }
+
+        .category-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .category-tag {
+            background: var(--bg-input);
+            padding: 8px 12px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .delete-category {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏡 StockHogar</h1>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboardPage" class="page active">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--primary)" id="totalItems">0</div>
+                <div class="stat-label">Total Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--danger)" id="expiredItems">0</div>
+                <div class="stat-label">Por Vencer</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--warning)" id="lowStock">0</div>
+                <div class="stat-label">Stock Bajo</div>
+            </div>
+        </div>
+
+        <div class="section-header">
+            <h2 class="section-title">Alertas de Caducidad</h2>
+        </div>
+        <div class="items-grid" id="alertsContainer"></div>
+    </div>
+
+    <!-- Items Page -->
+    <div id="itemsPage" class="page">
+        <div class="section-header">
+            <h2 class="section-title">Mis Artículos</h2>
+            <button class="btn btn-primary btn-small" onclick="openAddItemModal()">+ Agregar</button>
+        </div>
+        
+        <div class="filters" id="categoryFilters"></div>
+        
+        <div class="items-grid" id="itemsContainer"></div>
+    </div>
+
+    <!-- Shopping List Page -->
+    <div id="shoppingPage" class="page">
+        <div class="section-header">
+            <h2 class="section-title">Lista de Compras</h2>
+        </div>
+        
+        <div class="export-buttons">
+            <button class="btn btn-secondary btn-small" onclick="exportToPDF()" style="flex: 1">📄 PDF</button>
+            <button class="btn btn-secondary btn-small" onclick="exportToExcel()" style="flex: 1">📊 Excel</button>
+        </div>
+
+        <div style="padding: 0 20px;" id="shoppingListContainer"></div>
+    </div>
+
+    <!-- Settings Page -->
+    <div id="settingsPage" class="page">
+        <div class="section-header">
+            <h2 class="section-title">Configuración</h2>
+        </div>
+        
+        <div style="padding: 0 20px;">
+            <div class="item-card category-manager">
+                <h3 style="margin-bottom: 16px; font-family: 'Outfit', sans-serif;">Gestionar Categorías</h3>
+                
+                <div class="form-group">
+                    <input type="text" id="newCategoryInput" class="form-input" placeholder="Nueva categoría...">
+                    <button class="btn btn-primary btn-small" onclick="addCategory()" style="margin-top: 8px; width: 100%;">+ Agregar Categoría</button>
+                </div>
+                
+                <div class="category-list" id="categoryList"></div>
+            </div>
+
+            <div class="item-card" style="margin-top: 20px;">
+                <h3 style="margin-bottom: 16px; font-family: 'Outfit', sans-serif; color: var(--danger);">Zona de Peligro</h3>
+                <button class="btn btn-danger" onclick="clearAllData()" style="width: 100%;">🗑️ Borrar Todos los Datos</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Item Modal -->
+    <div id="itemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Agregar Artículo</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            
+            <form id="itemForm" onsubmit="saveItem(event)">
+                <div class="form-group">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" id="itemName" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Categoría</label>
+                    <select id="itemCategory" class="form-select" required></select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Stock Actual</label>
+                    <input type="number" id="itemStock" class="form-input" min="0" step="0.1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Stock Mínimo</label>
+                    <input type="number" id="itemMinStock" class="form-input" min="0" step="0.1" value="1">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Fecha de Caducidad</label>
+                    <input type="date" id="itemExpiry" class="form-input">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Precio (AR$)</label>
+                    <input type="number" id="itemPrice" class="form-input" min="0" step="0.01">
+                </div>
+                
+                <input type="hidden" id="itemId">
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">Guardar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Price History Modal -->
+    <div id="priceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Historial de Precios</h3>
+                <button class="close-btn" onclick="closePriceModal()">&times;</button>
+            </div>
+            <div id="priceHistoryContent"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchPage('dashboard')">
+            <div class="nav-icon">🏠</div>
+            <div class="nav-label">Inicio</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('items')">
+            <div class="nav-icon">📦</div>
+            <div class="nav-label">Artículos</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('shopping')">
+            <div class="nav-icon">🛒</div>
+            <div class="nav-label">Compras</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('settings')">
+            <div class="nav-icon">⚙️</div>
+            <div class="nav-label">Ajustes</div>
+        </div>
+    </div>
+
+    <script>
+        // Data Management
+        let items = JSON.parse(localStorage.getItem('stockItems')) || [];
+        let categories = JSON.parse(localStorage.getItem('categories')) || [
+            'Carnes', 'Verduras', 'Despensa', 'Higiene', 'Limpieza', 'Lácteos', 'Bebidas'
+        ];
+        let currentFilter = 'Todas';
+        let editingItemId = null;
+
+        function saveToStorage() {
+            localStorage.setItem('stockItems', JSON.stringify(items));
+            localStorage.setItem('categories', JSON.stringify(categories));
+        }
+
+        // Navigation
+        function switchPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            document.getElementById(page + 'Page').classList.add('active');
+            event.currentTarget.classList.add('active');
+            
+            if (page === 'dashboard') renderDashboard();
+            if (page === 'items') renderItems();
+            if (page === 'shopping') renderShoppingList();
+            if (page === 'settings') renderSettings();
+        }
+
+        // Dashboard
+        function renderDashboard() {
+            const now = new Date();
+            const expiringSoon = items.filter(item => {
+                if (!item.expiryDate) return false;
+                const expiryDate = new Date(item.expiryDate);
+                const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+                return daysUntilExpiry <= 7 && daysUntilExpiry >= 0;
+            });
+            
+            const lowStockItems = items.filter(item => item.stock <= item.minStock);
+            
+            document.getElementById('totalItems').textContent = items.length;
+            document.getElementById('expiredItems').textContent = expiringSoon.length;
+            document.getElementById('lowStock').textContent = lowStockItems.length;
+            
+            const alertsContainer = document.getElementById('alertsContainer');
+            const allAlerts = [...expiringSoon, ...lowStockItems];
+            
+            if (allAlerts.length === 0) {
+                alertsContainer.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-icon">✨</div>
+                        <p>¡Todo en orden! No hay alertas.</p>
+                    </div>
+                `;
+            } else {
+                alertsContainer.innerHTML = allAlerts.slice(0, 6).map(item => renderItemCard(item)).join('');
+            }
+        }
+
+        // Items
+        function renderItems() {
+            renderCategoryFilters();
+            const container = document.getElementById('itemsContainer');
+            
+            let filteredItems = currentFilter === 'Todas' 
+                ? items 
+                : items.filter(item => item.category === currentFilter);
+            
+            if (filteredItems.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-icon">📦</div>
+                        <p>No hay artículos en esta categoría</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = filteredItems.map(item => renderItemCard(item)).join('');
+            }
+        }
+
+        function renderCategoryFilters() {
+            const container = document.getElementById('categoryFilters');
+            const allCategories = ['Todas', ...categories];
+            
+            container.innerHTML = allCategories.map(cat => `
+                <div class="filter-chip ${currentFilter === cat ? 'active' : ''}" 
+                     onclick="filterByCategory('${cat}')">
+                    ${cat}
+                </div>
+            `).join('');
+        }
+
+        function filterByCategory(category) {
+            currentFilter = category;
+            renderItems();
+        }
+
+        function renderItemCard(item) {
+            const expiryInfo = getExpiryInfo(item);
+            const stockStatus = item.stock <= item.minStock ? '⚠️ Stock Bajo' : `${item.stock} unidades`;
+            
+            return `
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-name">${item.name}</div>
+                        <div class="item-category">${item.category}</div>
+                    </div>
+                    
+                    <div class="item-info">
+                        <div class="info-block">
+                            <div class="info-label">Stock</div>
+                            <div class="info-value" style="color: ${item.stock <= item.minStock ? 'var(--warning)' : 'var(--text)'}">${stockStatus}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Precio</div>
+                            <div class="info-value">AR$ ${item.price ? item.price.toFixed(2) : '-'}</div>
+                        </div>
+                    </div>
+                    
+                    ${expiryInfo.html}
+                    
+                    <div class="item-actions">
+                        <button class="btn-icon" onclick="editItem('${item.id}')">✏️ Editar</button>
+                        <button class="btn-icon" onclick="viewPriceHistory('${item.id}')">💰 Historial</button>
+                        <button class="btn-icon" onclick="deleteItem('${item.id}')">🗑️</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getExpiryInfo(item) {
+            if (!item.expiryDate) {
+                return { html: '', class: '' };
+            }
+            
+            const now = new Date();
+            const expiryDate = new Date(item.expiryDate);
+            const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+            
+            let className, message;
+            
+            if (daysUntilExpiry < 0) {
+                className = 'expiry-critical';
+                message = `⚠️ Venció hace ${Math.abs(daysUntilExpiry)} días`;
+            } else if (daysUntilExpiry === 0) {
+                className = 'expiry-critical';
+                message = '⚠️ Vence HOY';
+            } else if (daysUntilExpiry <= 3) {
+                className = 'expiry-critical';
+                message = `⚠️ Vence en ${daysUntilExpiry} día${daysUntilExpiry > 1 ? 's' : ''}`;
+            } else if (daysUntilExpiry <= 7) {
+                className = 'expiry-warning';
+                message = `⚡ Vence en ${daysUntilExpiry} días`;
+            } else if (daysUntilExpiry <= 14) {
+                className = 'expiry-good';
+                message = `✓ Vence en ${daysUntilExpiry} días`;
+            } else {
+                return { html: '', class: '' };
+            }
+            
+            return {
+                html: `<div class="expiry-alert ${className}">${message}</div>`,
+                class: className
+            };
+        }
+
+        // Modal Management
+        function openAddItemModal() {
+            editingItemId = null;
+            document.getElementById('modalTitle').textContent = 'Agregar Artículo';
+            document.getElementById('itemForm').reset();
+            populateCategorySelect();
+            document.getElementById('itemModal').classList.add('active');
+        }
+
+        function editItem(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            
+            editingItemId = id;
+            document.getElementById('modalTitle').textContent = 'Editar Artículo';
+            document.getElementById('itemId').value = item.id;
+            document.getElementById('itemName').value = item.name;
+            document.getElementById('itemStock').value = item.stock;
+            document.getElementById('itemMinStock').value = item.minStock;
+            document.getElementById('itemExpiry').value = item.expiryDate || '';
+            document.getElementById('itemPrice').value = item.price || '';
+            
+            populateCategorySelect();
+            document.getElementById('itemCategory').value = item.category;
+            
+            document.getElementById('itemModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('itemModal').classList.remove('active');
+        }
+
+        function populateCategorySelect() {
+            const select = document.getElementById('itemCategory');
+            select.innerHTML = categories.map(cat => 
+                `<option value="${cat}">${cat}</option>`
+            ).join('');
+        }
+
+        function saveItem(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('itemName').value;
+            const category = document.getElementById('itemCategory').value;
+            const stock = parseFloat(document.getElementById('itemStock').value);
+            const minStock = parseFloat(document.getElementById('itemMinStock').value);
+            const expiryDate = document.getElementById('itemExpiry').value;
+            const price = parseFloat(document.getElementById('itemPrice').value) || 0;
+            
+            if (editingItemId) {
+                // Edit existing
+                const item = items.find(i => i.id === editingItemId);
+                if (item) {
+                    item.name = name;
+                    item.category = category;
+                    item.stock = stock;
+                    item.minStock = minStock;
+                    item.expiryDate = expiryDate;
+                    
+                    // Add price to history if changed
+                    if (price && price !== item.price) {
+                        item.priceHistory = item.priceHistory || [];
+                        item.priceHistory.push({
+                            price: price,
+                            date: new Date().toISOString()
+                        });
+                        item.price = price;
+                    }
+                }
+            } else {
+                // Add new
+                const newItem = {
+                    id: Date.now().toString(),
+                    name,
+                    category,
+                    stock,
+                    minStock,
+                    expiryDate,
+                    price,
+                    priceHistory: price ? [{ price, date: new Date().toISOString() }] : [],
+                    createdAt: new Date().toISOString()
+                };
+                items.push(newItem);
+            }
+            
+            saveToStorage();
+            closeModal();
+            renderItems();
+            renderDashboard();
+            showToast(editingItemId ? 'Artículo actualizado' : 'Artículo agregado');
+        }
+
+        function deleteItem(id) {
+            if (confirm('¿Estás seguro de eliminar este artículo?')) {
+                items = items.filter(i => i.id !== id);
+                saveToStorage();
+                renderItems();
+                renderDashboard();
+                showToast('Artículo eliminado');
+            }
+        }
+
+        // Price History
+        function viewPriceHistory(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            
+            const content = document.getElementById('priceHistoryContent');
+            
+            if (!item.priceHistory || item.priceHistory.length === 0) {
+                content.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Sin historial de precios</p>';
+            } else {
+                const history = [...item.priceHistory].reverse();
+                content.innerHTML = `
+                    <div class="price-history">
+                        <h4 style="margin-bottom: 12px; font-family: 'Outfit', sans-serif;">${item.name}</h4>
+                        ${history.map(entry => `
+                            <div class="price-entry">
+                                <span>${new Date(entry.date).toLocaleDateString('es-AR')}</span>
+                                <span style="font-weight: 600; color: var(--primary)">AR$ ${entry.price.toFixed(2)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            document.getElementById('priceModal').classList.add('active');
+        }
+
+        function closePriceModal() {
+            document.getElementById('priceModal').classList.remove('active');
+        }
+
+        // Shopping List
+        function renderShoppingList() {
+            const container = document.getElementById('shoppingListContainer');
+            const shoppingItems = items.filter(item => item.stock <= item.minStock);
+            
+            if (shoppingItems.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">✓</div>
+                        <p>No hay artículos para comprar</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = shoppingItems.map(item => `
+                    <div class="shopping-list-item">
+                        <div class="checkbox" onclick="this.classList.toggle('checked')"></div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; font-size: 16px;">${item.name}</div>
+                            <div style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">
+                                ${item.category} • Stock actual: ${item.stock} • 
+                                ${item.price ? `Último precio: AR$ ${item.price.toFixed(2)}` : 'Sin precio'}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Export Functions
+        function exportToPDF() {
+            const shoppingItems = items.filter(item => item.stock <= item.minStock);
+            
+            if (shoppingItems.length === 0) {
+                showToast('No hay artículos para exportar');
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(20);
+            doc.text('Lista de Compras - StockHogar', 20, 20);
+            
+            doc.setFontSize(10);
+            doc.text(`Generado: ${new Date().toLocaleDateString('es-AR')}`, 20, 30);
+            
+            let y = 45;
+            doc.setFontSize(12);
+            
+            shoppingItems.forEach((item, index) => {
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+                
+                doc.text(`${index + 1}. ${item.name}`, 20, y);
+                doc.setFontSize(10);
+                doc.text(`   Categoría: ${item.category} | Stock: ${item.stock}`, 20, y + 5);
+                if (item.price) {
+                    doc.text(`   Último precio: AR$ ${item.price.toFixed(2)}`, 20, y + 10);
+                    y += 15;
+                } else {
+                    y += 10;
+                }
+                doc.setFontSize(12);
+            });
+            
+            doc.save(`lista-compras-${new Date().toISOString().split('T')[0]}.pdf`);
+            showToast('PDF generado correctamente');
+        }
+
+        function exportToExcel() {
+            const shoppingItems = items.filter(item => item.stock <= item.minStock);
+            
+            if (shoppingItems.length === 0) {
+                showToast('No hay artículos para exportar');
+                return;
+            }
+            
+            let csv = 'Nombre,Categoría,Stock Actual,Stock Mínimo,Último Precio\n';
+            
+            shoppingItems.forEach(item => {
+                csv += `"${item.name}","${item.category}",${item.stock},${item.minStock},${item.price || 0}\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `lista-compras-${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            
+            showToast('Excel generado correctamente');
+        }
+
+        // Settings
+        function renderSettings() {
+            const container = document.getElementById('categoryList');
+            container.innerHTML = categories.map(cat => `
+                <div class="category-tag">
+                    <span>${cat}</span>
+                    ${categories.length > 1 ? `<button class="delete-category" onclick="deleteCategory('${cat}')">×</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function addCategory() {
+            const input = document.getElementById('newCategoryInput');
+            const newCategory = input.value.trim();
+            
+            if (!newCategory) return;
+            
+            if (categories.includes(newCategory)) {
+                showToast('Esta categoría ya existe');
+                return;
+            }
+            
+            categories.push(newCategory);
+            saveToStorage();
+            input.value = '';
+            renderSettings();
+            showToast('Categoría agregada');
+        }
+
+        function deleteCategory(category) {
+            if (categories.length === 1) {
+                showToast('Debe haber al menos una categoría');
+                return;
+            }
+            
+            const itemsInCategory = items.filter(i => i.category === category);
+            if (itemsInCategory.length > 0) {
+                showToast(`No se puede eliminar: hay ${itemsInCategory.length} artículo(s) en esta categoría`);
+                return;
+            }
+            
+            categories = categories.filter(c => c !== category);
+            saveToStorage();
+            renderSettings();
+            showToast('Categoría eliminada');
+        }
+
+        function clearAllData() {
+            if (confirm('⚠️ ADVERTENCIA: Esto eliminará TODOS los artículos y configuraciones. ¿Estás seguro?')) {
+                if (confirm('¿Estás REALMENTE seguro? Esta acción no se puede deshacer.')) {
+                    items = [];
+                    categories = ['Carnes', 'Verduras', 'Despensa', 'Higiene', 'Limpieza', 'Lácteos', 'Bebidas'];
+                    saveToStorage();
+                    renderDashboard();
+                    renderItems();
+                    renderSettings();
+                    showToast('Todos los datos han sido eliminados');
+                }
+            }
+        }
+
+        // Toast Notifications
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideUpToast 0.3s reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
+
+        // Initialize
+        renderDashboard();
+        renderItems();
+    </script>
+</body>
+</html>
