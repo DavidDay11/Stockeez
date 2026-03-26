@@ -819,16 +819,28 @@
     </div>
 
     <script>
-        // Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDemoKey-ReplaceWithYourOwn",
-            authDomain: "stockhogar-demo.firebaseapp.com",
-            databaseURL: "https://stockhogar-demo-default-rtdb.firebaseio.com",
-            projectId: "stockhogar-demo",
-            storageBucket: "stockhogar-demo.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abc123"
-        };
+           // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyC7Iqv7Nndn8AnzRosOaWVxPyTEPrCopE8",
+  authDomain: "stockeez-5884a.firebaseapp.com",
+  databaseURL: "https://stockeez-5884a-default-rtdb.firebaseio.com",
+  projectId: "stockeez-5884a",
+  storageBucket: "stockeez-5884a.firebasestorage.app",
+  messagingSenderId: "731599293963",
+  appId: "1:731599293963:web:4a71b0d321a771b855c10e",
+  measurementId: "G-58QZNWN7TN"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
         let firebaseApp = null;
         let database = null;
