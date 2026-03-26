@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>StockHogar - Gestión de Despensa</title>
+    <title>StockEz - Gestión de Despensa</title>
     
     <!-- PWA Meta Tags -->
     <meta name="description" content="Gestiona el stock de tu hogar, despensa y heladera con alertas de caducidad">
     <meta name="theme-color" content="#2DD881">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="StockHogar">
+    <meta name="apple-mobile-web-app-title" content="StockEz">
     <link rel="manifest" href="#" id="manifest-placeholder">
     
     <!-- Icon SVG inline -->
@@ -482,9 +482,86 @@
             border-radius: 12px;
             border: 1px solid var(--border);
             margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+
+        .shopping-list-item.checked {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, rgba(45, 216, 129, 0.05), rgba(45, 216, 129, 0.02));
+        }
+
+        .shopping-item-header {
             display: flex;
             align-items: center;
             gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .shopping-item-inputs {
+            display: none;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .shopping-list-item.checked .shopping-item-inputs {
+            display: grid;
+        }
+
+        .inline-input {
+            padding: 10px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: 'DM Sans', sans-serif;
+            width: 100%;
+        }
+
+        .inline-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .inline-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .shopping-total-card {
+            position: sticky;
+            bottom: 80px;
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            padding: 20px;
+            border-radius: 16px;
+            margin: 20px 0;
+            box-shadow: 0 8px 24px rgba(45, 216, 129, 0.4);
+        }
+
+        .shopping-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+
+        .shopping-total-label {
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .shopping-total-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
         }
 
         .checkbox {
@@ -595,7 +672,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>🏡 StockHogar</h1>
+        <h1>🏡 StockEz</h1>
     </div>
 
     <!-- Dashboard Page -->
@@ -656,7 +733,7 @@
         <div style="padding: 0 20px;">
             <div class="item-card" id="installCard" style="display: none; background: linear-gradient(135deg, rgba(45, 216, 129, 0.1), rgba(45, 216, 129, 0.05)); border-color: var(--primary);">
                 <h3 style="margin-bottom: 12px; font-family: 'Outfit', sans-serif; color: var(--primary);">📱 Instalar Aplicación</h3>
-                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">Instala StockHogar en tu dispositivo para acceso rápido y funcionamiento offline.</p>
+                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">Instala StockEz en tu dispositivo para acceso rápido y funcionamiento offline.</p>
                 <button class="btn btn-primary" onclick="installPWA()" style="width: 100%;">⬇️ Instalar Ahora</button>
             </div>
 
@@ -819,7 +896,8 @@
     </div>
 
     <script>
- // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        // Firebase Configuration
+       // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyC7Iqv7Nndn8AnzRosOaWVxPyTEPrCopE8",
   authDomain: "stockeez-5884a.firebaseapp.com",
@@ -830,6 +908,7 @@ const firebaseConfig = {
   appId: "1:731599293963:web:4a71b0d321a771b855c10e",
   measurementId: "G-58QZNWN7TN"
 };
+
 
         let firebaseApp = null;
         let database = null;
@@ -972,6 +1051,7 @@ const firebaseConfig = {
         ];
         let currentFilter = 'Todas';
         let editingItemId = null;
+        let shoppingCart = {}; // { itemId: { checked: bool, quantity: number, price: number } }
 
         function saveToStorage() {
             localStorage.setItem('stockItems', JSON.stringify(items));
@@ -1174,7 +1254,7 @@ const firebaseConfig = {
         function saveItem(event) {
             event.preventDefault();
             
-            const name = document.getElementById('itemName').value;
+            const name = document.getElementById('itemName').value.trim();
             const category = document.getElementById('itemCategory').value;
             const stock = parseFloat(document.getElementById('itemStock').value);
             const unit = document.getElementById('itemUnit').value;
@@ -1204,6 +1284,41 @@ const firebaseConfig = {
                     }
                 }
             } else {
+                // Check for duplicates (same name and expiry date)
+                const duplicate = items.find(i => 
+                    i.name.toLowerCase() === name.toLowerCase() && 
+                    i.expiryDate === expiryDate &&
+                    expiryDate !== '' // Only check if there's an expiry date
+                );
+                
+                if (duplicate) {
+                    // Ask user if they want to add to existing
+                    if (confirm(`Ya existe "${duplicate.name}" con la misma fecha de vencimiento (${new Date(duplicate.expiryDate).toLocaleDateString('es-AR')}).\n\nStock actual: ${duplicate.stock} ${duplicate.unit}\n\n¿Quieres SUMAR ${stock} ${unit} al stock existente?`)) {
+                        duplicate.stock += stock;
+                        
+                        // Update price if provided
+                        if (price && price !== duplicate.price) {
+                            duplicate.priceHistory = duplicate.priceHistory || [];
+                            duplicate.priceHistory.push({
+                                price: price,
+                                date: new Date().toISOString()
+                            });
+                            duplicate.price = price;
+                        }
+                        
+                        saveToStorage();
+                        syncToFirebase();
+                        closeModal();
+                        renderItems();
+                        renderDashboard();
+                        showToast(`Stock actualizado: ${duplicate.stock} ${duplicate.unit}`);
+                        return;
+                    } else {
+                        closeModal();
+                        return;
+                    }
+                }
+                
                 // Add new
                 const newItem = {
                     id: Date.now().toString(),
@@ -1282,20 +1397,143 @@ const firebaseConfig = {
                         <p>No hay artículos para comprar</p>
                     </div>
                 `;
-            } else {
-                container.innerHTML = shoppingItems.map(item => `
-                    <div class="shopping-list-item">
-                        <div class="checkbox" onclick="this.classList.toggle('checked')"></div>
-                        <div style="flex: 1;">
-                            <div style="font-weight: 600; font-size: 16px;">${item.name}</div>
-                            <div style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">
-                                ${item.category} • Stock: ${item.stock} ${item.unit || 'unidades'} • 
-                                ${item.price ? `Último precio: AR$ ${item.price.toFixed(2)}` : 'Sin precio'}
+                return;
+            }
+
+            // Calculate total
+            let total = 0;
+            let itemsChecked = 0;
+            shoppingItems.forEach(item => {
+                if (shoppingCart[item.id]?.checked) {
+                    const price = shoppingCart[item.id].price || 0;
+                    total += price;
+                    itemsChecked++;
+                }
+            });
+
+            container.innerHTML = `
+                ${shoppingItems.map(item => {
+                    const cartItem = shoppingCart[item.id] || { checked: false, quantity: '', price: '' };
+                    return `
+                        <div class="shopping-list-item ${cartItem.checked ? 'checked' : ''}" id="shop-item-${item.id}">
+                            <div class="shopping-item-header">
+                                <div class="checkbox ${cartItem.checked ? 'checked' : ''}" 
+                                     onclick="toggleShoppingItem('${item.id}')"></div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; font-size: 16px;">${item.name}</div>
+                                    <div style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">
+                                        ${item.category} • Falta: ${item.minStock - item.stock} ${item.unit || 'unidades'} • 
+                                        ${item.price ? `Último: AR$ ${item.price.toFixed(2)}` : 'Sin precio'}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="shopping-item-inputs">
+                                <div>
+                                    <div class="inline-label">Cantidad comprada</div>
+                                    <input type="number" 
+                                           class="inline-input" 
+                                           placeholder="0"
+                                           step="0.1"
+                                           min="0"
+                                           value="${cartItem.quantity}"
+                                           onchange="updateCartItem('${item.id}', 'quantity', this.value)">
+                                </div>
+                                <div>
+                                    <div class="inline-label">Precio pagado (AR$)</div>
+                                    <input type="number" 
+                                           class="inline-input" 
+                                           placeholder="0.00"
+                                           step="0.01"
+                                           min="0"
+                                           value="${cartItem.price}"
+                                           onchange="updateCartItem('${item.id}', 'price', this.value)">
+                                </div>
                             </div>
                         </div>
+                    `;
+                }).join('')}
+                
+                ${itemsChecked > 0 ? `
+                    <div class="shopping-total-card">
+                        <div class="shopping-total-row" style="margin-bottom: 16px;">
+                            <div class="shopping-total-label">Total de Compra</div>
+                            <div class="shopping-total-value">AR$ ${total.toFixed(2)}</div>
+                        </div>
+                        <div style="color: rgba(255,255,255,0.8); font-size: 13px; margin-bottom: 16px;">
+                            ${itemsChecked} artículo${itemsChecked !== 1 ? 's' : ''} seleccionado${itemsChecked !== 1 ? 's' : ''}
+                        </div>
+                        <button class="btn" onclick="finishShopping()" 
+                                style="width: 100%; background: white; color: var(--primary-dark); font-weight: 600; box-shadow: none;">
+                            ✓ Finalizar Compra y Actualizar Stock
+                        </button>
                     </div>
-                `).join('');
+                ` : ''}
+            `;
+        }
+
+        function toggleShoppingItem(itemId) {
+            if (!shoppingCart[itemId]) {
+                shoppingCart[itemId] = { checked: false, quantity: '', price: '' };
             }
+            shoppingCart[itemId].checked = !shoppingCart[itemId].checked;
+            renderShoppingList();
+        }
+
+        function updateCartItem(itemId, field, value) {
+            if (!shoppingCart[itemId]) {
+                shoppingCart[itemId] = { checked: true, quantity: '', price: '' };
+            }
+            shoppingCart[itemId][field] = parseFloat(value) || 0;
+            renderShoppingList();
+        }
+
+        function finishShopping() {
+            const purchasedItems = [];
+            
+            Object.keys(shoppingCart).forEach(itemId => {
+                const cartItem = shoppingCart[itemId];
+                if (cartItem.checked) {
+                    const item = items.find(i => i.id === itemId);
+                    if (item) {
+                        // Update stock
+                        if (cartItem.quantity > 0) {
+                            item.stock += cartItem.quantity;
+                        }
+                        
+                        // Update price and history
+                        if (cartItem.price > 0 && cartItem.price !== item.price) {
+                            item.priceHistory = item.priceHistory || [];
+                            item.priceHistory.push({
+                                price: cartItem.price,
+                                date: new Date().toISOString()
+                            });
+                            item.price = cartItem.price;
+                        }
+                        
+                        purchasedItems.push(item.name);
+                    }
+                }
+            });
+
+            if (purchasedItems.length === 0) {
+                showToast('No hay artículos para actualizar');
+                return;
+            }
+
+            // Clear shopping cart
+            shoppingCart = {};
+            
+            // Save and sync
+            saveToStorage();
+            syncToFirebase();
+            
+            // Refresh views
+            renderShoppingList();
+            renderDashboard();
+            renderItems();
+            
+            showToast(`✓ Compra finalizada: ${purchasedItems.length} artículo${purchasedItems.length !== 1 ? 's' : ''} actualizado${purchasedItems.length !== 1 ? 's' : ''}`);
         }
 
         // Export Functions
@@ -1311,12 +1549,13 @@ const firebaseConfig = {
             const doc = new jsPDF();
             
             doc.setFontSize(20);
-            doc.text('Lista de Compras - StockHogar', 20, 20);
+            doc.text('Lista de Compras - StockEz', 20, 20);
             
             doc.setFontSize(10);
             doc.text(`Generado: ${new Date().toLocaleDateString('es-AR')}`, 20, 30);
+            doc.text(`Total de articulos: ${shoppingItems.length}`, 20, 36);
             
-            let y = 45;
+            let y = 50;
             doc.setFontSize(12);
             
             shoppingItems.forEach((item, index) => {
@@ -1325,14 +1564,17 @@ const firebaseConfig = {
                     y = 20;
                 }
                 
+                const needed = item.minStock - item.stock;
+                
                 doc.text(`${index + 1}. ${item.name}`, 20, y);
                 doc.setFontSize(10);
-                doc.text(`   Categoría: ${item.category} | Stock: ${item.stock} ${item.unit || 'unidades'}`, 20, y + 5);
+                doc.text(`   Categoria: ${item.category}`, 20, y + 5);
+                doc.text(`   Necesitas: ${needed > 0 ? needed.toFixed(1) : 'Reponer'} ${item.unit || 'unidades'}`, 20, y + 10);
                 if (item.price) {
-                    doc.text(`   Último precio: AR$ ${item.price.toFixed(2)}`, 20, y + 10);
-                    y += 15;
+                    doc.text(`   Ultimo precio: AR$ ${item.price.toFixed(2)}`, 20, y + 15);
+                    y += 22;
                 } else {
-                    y += 10;
+                    y += 17;
                 }
                 doc.setFontSize(12);
             });
@@ -1349,10 +1591,11 @@ const firebaseConfig = {
                 return;
             }
             
-            let csv = 'Nombre,Categoría,Stock Actual,Unidad,Stock Mínimo,Último Precio\n';
+            let csv = 'Nombre,Categoría,Stock Actual,Unidad,Stock Mínimo,Cantidad Necesaria,Último Precio\n';
             
             shoppingItems.forEach(item => {
-                csv += `"${item.name}","${item.category}",${item.stock},"${item.unit || 'unidades'}",${item.minStock},${item.price || 0}\n`;
+                const needed = Math.max(0, item.minStock - item.stock);
+                csv += `"${item.name}","${item.category}",${item.stock},"${item.unit || 'unidades'}",${item.minStock},${needed.toFixed(1)},${item.price || 0}\n`;
             });
             
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1467,8 +1710,8 @@ const firebaseConfig = {
         
         // Create manifest dynamically
         const manifest = {
-            name: "StockHogar - Gestión de Despensa",
-            short_name: "StockHogar",
+            name: "StockEz - Gestión de Despensa",
+            short_name: "StockEz",
             description: "Gestiona el stock de tu hogar con alertas de caducidad",
             start_url: "./",
             display: "standalone",
@@ -1498,7 +1741,7 @@ const firebaseConfig = {
         // Register Service Worker
         if ('serviceWorker' in navigator) {
             const swCode = `
-                const CACHE_NAME = 'stockhogar-v1';
+                const CACHE_NAME = 'StockEz-v1';
                 const urlsToCache = ['./', '/'];
                 
                 self.addEventListener('install', (event) => {
@@ -1553,7 +1796,7 @@ const firebaseConfig = {
             banner.innerHTML = `
                 <div style="position: fixed; top: 70px; left: 20px; right: 20px; background: linear-gradient(135deg, var(--primary-dark), var(--primary)); padding: 16px 20px; border-radius: 16px; box-shadow: 0 8px 24px var(--shadow); z-index: 999; display: flex; align-items: center; gap: 12px; animation: slideDown 0.3s;">
                     <div style="flex: 1; color: white;">
-                        <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">📱 Instalar StockHogar</div>
+                        <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">📱 Instalar StockEz</div>
                         <div style="font-size: 12px; opacity: 0.9;">Acceso rápido desde tu pantalla de inicio</div>
                     </div>
                     <button onclick="installPWA()" style="background: white; color: var(--primary-dark); border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap;">Instalar</button>
