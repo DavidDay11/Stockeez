@@ -4,8 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>StockHogar - Gestión de Despensa</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Gestiona el stock de tu hogar, despensa y heladera con alertas de caducidad">
+    <meta name="theme-color" content="#2DD881">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="StockHogar">
+    <link rel="manifest" href="#" id="manifest-placeholder">
+    
+    <!-- Icon SVG inline -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%232DD881' width='100' height='100' rx='20'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>🏡</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%232DD881' width='100' height='100' rx='20'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>🏡</text></svg>">
+    
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -542,6 +557,11 @@
             to { transform: translate(-50%, 0); opacity: 1; }
         }
 
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
         .category-manager {
             margin-top: 20px;
         }
@@ -634,6 +654,60 @@
         </div>
         
         <div style="padding: 0 20px;">
+            <div class="item-card" id="installCard" style="display: none; background: linear-gradient(135deg, rgba(45, 216, 129, 0.1), rgba(45, 216, 129, 0.05)); border-color: var(--primary);">
+                <h3 style="margin-bottom: 12px; font-family: 'Outfit', sans-serif; color: var(--primary);">📱 Instalar Aplicación</h3>
+                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">Instala StockHogar en tu dispositivo para acceso rápido y funcionamiento offline.</p>
+                <button class="btn btn-primary" onclick="installPWA()" style="width: 100%;">⬇️ Instalar Ahora</button>
+            </div>
+
+            <div class="item-card" id="iosInstallCard" style="display: none; background: linear-gradient(135deg, rgba(45, 216, 129, 0.1), rgba(45, 216, 129, 0.05)); border-color: var(--primary);">
+                <h3 style="margin-bottom: 12px; font-family: 'Outfit', sans-serif; color: var(--primary);">📱 Instalar en iOS</h3>
+                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 12px;">Para instalar en iPhone/iPad:</p>
+                <ol style="color: var(--text-secondary); font-size: 13px; padding-left: 20px; line-height: 1.8;">
+                    <li>Toca el botón "Compartir" <span style="font-size: 16px;">⎙</span></li>
+                    <li>Selecciona "Añadir a pantalla de inicio"</li>
+                    <li>Toca "Añadir"</li>
+                </ol>
+            </div>
+
+            <div class="item-card" style="background: linear-gradient(135deg, rgba(255, 169, 77, 0.1), rgba(255, 169, 77, 0.05)); border-color: var(--warning);">
+                <h3 style="margin-bottom: 16px; font-family: 'Outfit', sans-serif; color: var(--warning);">🔄 Sincronización en Tiempo Real</h3>
+                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">
+                    Sincroniza tus datos con otros dispositivos en tiempo real. Ideal para compartir la lista con tu pareja.
+                </p>
+                
+                <div id="syncStatus">
+                    <div id="notConnected">
+                        <div class="form-group">
+                            <label class="form-label">Código de Sesión (6 caracteres)</label>
+                            <input type="text" id="sessionCode" class="form-input" placeholder="Ej: CASA01" maxlength="6" style="text-transform: uppercase;">
+                            <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">
+                                💡 Crea un código único o ingresa el código que ya está usando tu pareja
+                            </p>
+                        </div>
+                        <button class="btn btn-primary" onclick="connectToSession()" style="width: 100%; margin-top: 8px;">🔗 Conectar Sesión</button>
+                    </div>
+                    
+                    <div id="connected" style="display: none;">
+                        <div style="background: var(--bg-input); padding: 16px; border-radius: 12px; margin-bottom: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="color: var(--text-secondary); font-size: 13px;">Estado:</span>
+                                <span style="color: var(--success); font-weight: 600; font-size: 14px;">✓ Conectado</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="color: var(--text-secondary); font-size: 13px;">Código:</span>
+                                <span style="font-weight: 600; font-size: 16px; font-family: 'Outfit', monospace;" id="activeSessionCode"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: var(--text-secondary); font-size: 13px;">Dispositivos:</span>
+                                <span style="color: var(--primary); font-weight: 600;" id="deviceCount">1</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-danger" onclick="disconnectSession()" style="width: 100%;">🔌 Desconectar</button>
+                    </div>
+                </div>
+            </div>
+            
             <div class="item-card category-manager">
                 <h3 style="margin-bottom: 16px; font-family: 'Outfit', sans-serif;">Gestionar Categorías</h3>
                 
@@ -674,6 +748,21 @@
                 <div class="form-group">
                     <label class="form-label">Stock Actual</label>
                     <input type="number" id="itemStock" class="form-input" min="0" step="0.1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Unidad de Medida</label>
+                    <select id="itemUnit" class="form-select" required>
+                        <option value="unidades">Unidades</option>
+                        <option value="kg">Kilogramos (kg)</option>
+                        <option value="g">Gramos (g)</option>
+                        <option value="litros">Litros (L)</option>
+                        <option value="ml">Mililitros (ml)</option>
+                        <option value="paquetes">Paquetes</option>
+                        <option value="cajas">Cajas</option>
+                        <option value="latas">Latas</option>
+                        <option value="botellas">Botellas</option>
+                    </select>
                 </div>
                 
                 <div class="form-group">
@@ -730,6 +819,151 @@
     </div>
 
     <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDemoKey-ReplaceWithYourOwn",
+            authDomain: "stockhogar-demo.firebaseapp.com",
+            databaseURL: "https://stockhogar-demo-default-rtdb.firebaseio.com",
+            projectId: "stockhogar-demo",
+            storageBucket: "stockhogar-demo.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abc123"
+        };
+
+        let firebaseApp = null;
+        let database = null;
+        let sessionRef = null;
+        let deviceId = localStorage.getItem('deviceId') || generateDeviceId();
+        let currentSessionCode = localStorage.getItem('sessionCode') || null;
+        let isConnected = false;
+        let isSyncing = false;
+
+        function generateDeviceId() {
+            const id = 'device_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('deviceId', id);
+            return id;
+        }
+
+        function initFirebase() {
+            try {
+                if (!firebase.apps.length) {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                    database = firebase.database();
+                    
+                    // Auto-connect if session exists
+                    if (currentSessionCode) {
+                        connectToSession(currentSessionCode);
+                    }
+                }
+            } catch (error) {
+                console.log('Firebase no disponible o configuración inválida. Funciona solo en modo local.');
+            }
+        }
+
+        function connectToSession(code = null) {
+            const sessionCode = (code || document.getElementById('sessionCode').value).toUpperCase().trim();
+            
+            if (!sessionCode || sessionCode.length !== 6) {
+                showToast('Ingresa un código de 6 caracteres');
+                return;
+            }
+
+            if (!database) {
+                showToast('⚠️ Sincronización no disponible. Necesitas configurar Firebase.');
+                return;
+            }
+
+            currentSessionCode = sessionCode;
+            localStorage.setItem('sessionCode', sessionCode);
+            
+            sessionRef = database.ref(`sessions/${sessionCode}`);
+            
+            // Register device
+            sessionRef.child('devices').child(deviceId).set({
+                lastSeen: firebase.database.ServerValue.TIMESTAMP,
+                name: `Dispositivo ${deviceId.substr(-4)}`
+            });
+
+            // Remove device on disconnect
+            sessionRef.child('devices').child(deviceId).onDisconnect().remove();
+
+            // Upload current data
+            isSyncing = true;
+            sessionRef.child('data').set({
+                items: items,
+                categories: categories,
+                lastUpdate: firebase.database.ServerValue.TIMESTAMP,
+                updatedBy: deviceId
+            }).then(() => {
+                isSyncing = false;
+                isConnected = true;
+                updateSyncUI();
+                showToast('✓ Sesión conectada');
+                
+                // Listen for changes
+                sessionRef.child('data').on('value', (snapshot) => {
+                    if (!isSyncing) {
+                        const data = snapshot.val();
+                        if (data && data.updatedBy !== deviceId) {
+                            items = data.items || [];
+                            categories = data.categories || categories;
+                            saveToStorage();
+                            renderDashboard();
+                            renderItems();
+                            renderSettings();
+                        }
+                    }
+                });
+
+                // Listen for device count
+                sessionRef.child('devices').on('value', (snapshot) => {
+                    const devices = snapshot.val();
+                    const count = devices ? Object.keys(devices).length : 1;
+                    document.getElementById('deviceCount').textContent = count;
+                });
+            });
+        }
+
+        function disconnectSession() {
+            if (sessionRef) {
+                sessionRef.child('devices').child(deviceId).remove();
+                sessionRef.off();
+                sessionRef = null;
+            }
+            
+            currentSessionCode = null;
+            isConnected = false;
+            localStorage.removeItem('sessionCode');
+            
+            updateSyncUI();
+            showToast('Sesión desconectada');
+        }
+
+        function syncToFirebase() {
+            if (!isConnected || !sessionRef || isSyncing) return;
+            
+            isSyncing = true;
+            sessionRef.child('data').set({
+                items: items,
+                categories: categories,
+                lastUpdate: firebase.database.ServerValue.TIMESTAMP,
+                updatedBy: deviceId
+            }).then(() => {
+                isSyncing = false;
+            });
+        }
+
+        function updateSyncUI() {
+            if (isConnected) {
+                document.getElementById('notConnected').style.display = 'none';
+                document.getElementById('connected').style.display = 'block';
+                document.getElementById('activeSessionCode').textContent = currentSessionCode;
+            } else {
+                document.getElementById('notConnected').style.display = 'block';
+                document.getElementById('connected').style.display = 'none';
+            }
+        }
+
         // Data Management
         let items = JSON.parse(localStorage.getItem('stockItems')) || [];
         let categories = JSON.parse(localStorage.getItem('categories')) || [
@@ -828,7 +1062,8 @@
 
         function renderItemCard(item) {
             const expiryInfo = getExpiryInfo(item);
-            const stockStatus = item.stock <= item.minStock ? '⚠️ Stock Bajo' : `${item.stock} unidades`;
+            const unit = item.unit || 'unidades';
+            const stockStatus = item.stock <= item.minStock ? `⚠️ Stock Bajo: ${item.stock} ${unit}` : `${item.stock} ${unit}`;
             
             return `
                 <div class="item-card">
@@ -913,6 +1148,7 @@
             document.getElementById('itemId').value = item.id;
             document.getElementById('itemName').value = item.name;
             document.getElementById('itemStock').value = item.stock;
+            document.getElementById('itemUnit').value = item.unit || 'unidades';
             document.getElementById('itemMinStock').value = item.minStock;
             document.getElementById('itemExpiry').value = item.expiryDate || '';
             document.getElementById('itemPrice').value = item.price || '';
@@ -940,6 +1176,7 @@
             const name = document.getElementById('itemName').value;
             const category = document.getElementById('itemCategory').value;
             const stock = parseFloat(document.getElementById('itemStock').value);
+            const unit = document.getElementById('itemUnit').value;
             const minStock = parseFloat(document.getElementById('itemMinStock').value);
             const expiryDate = document.getElementById('itemExpiry').value;
             const price = parseFloat(document.getElementById('itemPrice').value) || 0;
@@ -951,6 +1188,7 @@
                     item.name = name;
                     item.category = category;
                     item.stock = stock;
+                    item.unit = unit;
                     item.minStock = minStock;
                     item.expiryDate = expiryDate;
                     
@@ -971,6 +1209,7 @@
                     name,
                     category,
                     stock,
+                    unit,
                     minStock,
                     expiryDate,
                     price,
@@ -981,6 +1220,7 @@
             }
             
             saveToStorage();
+            syncToFirebase();
             closeModal();
             renderItems();
             renderDashboard();
@@ -991,6 +1231,7 @@
             if (confirm('¿Estás seguro de eliminar este artículo?')) {
                 items = items.filter(i => i.id !== id);
                 saveToStorage();
+                syncToFirebase();
                 renderItems();
                 renderDashboard();
                 showToast('Artículo eliminado');
@@ -1047,7 +1288,7 @@
                         <div style="flex: 1;">
                             <div style="font-weight: 600; font-size: 16px;">${item.name}</div>
                             <div style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">
-                                ${item.category} • Stock actual: ${item.stock} • 
+                                ${item.category} • Stock: ${item.stock} ${item.unit || 'unidades'} • 
                                 ${item.price ? `Último precio: AR$ ${item.price.toFixed(2)}` : 'Sin precio'}
                             </div>
                         </div>
@@ -1085,7 +1326,7 @@
                 
                 doc.text(`${index + 1}. ${item.name}`, 20, y);
                 doc.setFontSize(10);
-                doc.text(`   Categoría: ${item.category} | Stock: ${item.stock}`, 20, y + 5);
+                doc.text(`   Categoría: ${item.category} | Stock: ${item.stock} ${item.unit || 'unidades'}`, 20, y + 5);
                 if (item.price) {
                     doc.text(`   Último precio: AR$ ${item.price.toFixed(2)}`, 20, y + 10);
                     y += 15;
@@ -1107,10 +1348,10 @@
                 return;
             }
             
-            let csv = 'Nombre,Categoría,Stock Actual,Stock Mínimo,Último Precio\n';
+            let csv = 'Nombre,Categoría,Stock Actual,Unidad,Stock Mínimo,Último Precio\n';
             
             shoppingItems.forEach(item => {
-                csv += `"${item.name}","${item.category}",${item.stock},${item.minStock},${item.price || 0}\n`;
+                csv += `"${item.name}","${item.category}",${item.stock},"${item.unit || 'unidades'}",${item.minStock},${item.price || 0}\n`;
             });
             
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1131,6 +1372,27 @@
                     ${categories.length > 1 ? `<button class="delete-category" onclick="deleteCategory('${cat}')">×</button>` : ''}
                 </div>
             `).join('');
+            
+            // Update sync UI
+            updateSyncUI();
+            
+            // Show install options
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+            
+            if (isStandalone) {
+                // Already installed, hide both cards
+                document.getElementById('installCard').style.display = 'none';
+                document.getElementById('iosInstallCard').style.display = 'none';
+            } else if (isIOS) {
+                // Show iOS instructions
+                document.getElementById('installCard').style.display = 'none';
+                document.getElementById('iosInstallCard').style.display = 'block';
+            } else if (deferredPrompt) {
+                // Show install button for Android/Desktop
+                document.getElementById('installCard').style.display = 'block';
+                document.getElementById('iosInstallCard').style.display = 'none';
+            }
         }
 
         function addCategory() {
@@ -1146,6 +1408,7 @@
             
             categories.push(newCategory);
             saveToStorage();
+            syncToFirebase();
             input.value = '';
             renderSettings();
             showToast('Categoría agregada');
@@ -1165,6 +1428,7 @@
             
             categories = categories.filter(c => c !== category);
             saveToStorage();
+            syncToFirebase();
             renderSettings();
             showToast('Categoría eliminada');
         }
@@ -1175,6 +1439,7 @@
                     items = [];
                     categories = ['Carnes', 'Verduras', 'Despensa', 'Higiene', 'Limpieza', 'Lácteos', 'Bebidas'];
                     saveToStorage();
+                    syncToFirebase();
                     renderDashboard();
                     renderItems();
                     renderSettings();
@@ -1196,7 +1461,128 @@
             }, 2000);
         }
 
+        // PWA Installation
+        let deferredPrompt;
+        
+        // Create manifest dynamically
+        const manifest = {
+            name: "StockHogar - Gestión de Despensa",
+            short_name: "StockHogar",
+            description: "Gestiona el stock de tu hogar con alertas de caducidad",
+            start_url: "./",
+            display: "standalone",
+            background_color: "#1A1F2E",
+            theme_color: "#2DD881",
+            orientation: "portrait-primary",
+            icons: [
+                {
+                    src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232DD881' width='192' height='192' rx='40'/><text x='96' y='140' font-size='120' text-anchor='middle' fill='white'>🏡</text></svg>",
+                    sizes: "192x192",
+                    type: "image/svg+xml",
+                    purpose: "any maskable"
+                },
+                {
+                    src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%232DD881' width='512' height='512' rx='100'/><text x='256' y='380' font-size='320' text-anchor='middle' fill='white'>🏡</text></svg>",
+                    sizes: "512x512",
+                    type: "image/svg+xml",
+                    purpose: "any maskable"
+                }
+            ]
+        };
+        
+        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        document.getElementById('manifest-placeholder').setAttribute('href', manifestURL);
+        
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                const CACHE_NAME = 'stockhogar-v1';
+                const urlsToCache = ['./', '/'];
+                
+                self.addEventListener('install', (event) => {
+                    event.waitUntil(
+                        caches.open(CACHE_NAME)
+                            .then((cache) => cache.addAll(urlsToCache))
+                    );
+                    self.skipWaiting();
+                });
+                
+                self.addEventListener('fetch', (event) => {
+                    event.respondWith(
+                        caches.match(event.request)
+                            .then((response) => response || fetch(event.request))
+                    );
+                });
+                
+                self.addEventListener('activate', (event) => {
+                    event.waitUntil(
+                        caches.keys().then((cacheNames) => {
+                            return Promise.all(
+                                cacheNames.map((cacheName) => {
+                                    if (cacheName !== CACHE_NAME) {
+                                        return caches.delete(cacheName);
+                                    }
+                                })
+                            );
+                        })
+                    );
+                    self.clients.claim();
+                });
+            `;
+            
+            const swBlob = new Blob([swCode], { type: 'application/javascript' });
+            const swURL = URL.createObjectURL(swBlob);
+            
+            navigator.serviceWorker.register(swURL)
+                .then(() => console.log('Service Worker registrado'))
+                .catch((err) => console.log('Service Worker error:', err));
+        }
+        
+        // Install prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showInstallBanner();
+        });
+        
+        function showInstallBanner() {
+            const banner = document.createElement('div');
+            banner.id = 'install-banner';
+            banner.innerHTML = `
+                <div style="position: fixed; top: 70px; left: 20px; right: 20px; background: linear-gradient(135deg, var(--primary-dark), var(--primary)); padding: 16px 20px; border-radius: 16px; box-shadow: 0 8px 24px var(--shadow); z-index: 999; display: flex; align-items: center; gap: 12px; animation: slideDown 0.3s;">
+                    <div style="flex: 1; color: white;">
+                        <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">📱 Instalar StockHogar</div>
+                        <div style="font-size: 12px; opacity: 0.9;">Acceso rápido desde tu pantalla de inicio</div>
+                    </div>
+                    <button onclick="installPWA()" style="background: white; color: var(--primary-dark); border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap;">Instalar</button>
+                    <button onclick="dismissInstallBanner()" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 10px; border-radius: 10px; font-size: 18px; cursor: pointer; width: 36px; height: 36px;">×</button>
+                </div>
+            `;
+            document.body.appendChild(banner);
+        }
+        
+        window.installPWA = async function() {
+            if (!deferredPrompt) return;
+            
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            
+            if (outcome === 'accepted') {
+                showToast('¡App instalada correctamente! ✓');
+            }
+            
+            deferredPrompt = null;
+            dismissInstallBanner();
+        };
+        
+        window.dismissInstallBanner = function() {
+            const banner = document.getElementById('install-banner');
+            if (banner) banner.remove();
+        };
+        
         // Initialize
+        initFirebase();
         renderDashboard();
         renderItems();
     </script>
