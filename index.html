@@ -41,11 +41,15 @@
                 <div class="stat-label">Total Items</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" style="color: var(--danger)" id="expiredItems">0</div>
+                <div class="stat-value" style="color: var(--secondary)" id="vencidosItems">0</div>
+                <div class="stat-label">Vencidos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--warning)" id="expiredItems">0</div>
                 <div class="stat-label">Por Vencer</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" style="color: var(--warning)" id="lowStock">0</div>
+                <div class="stat-value" style="color: var(--danger)" id="lowStock">0</div>
                 <div class="stat-label">Stock Bajo</div>
             </div>
         </div>
@@ -144,6 +148,22 @@
             </div>
             
             <div class="item-card" style="background: linear-gradient(135deg, rgba(45, 216, 129, 0.1), rgba(45, 216, 129, 0.05)); border-color: var(--primary);">
+                <h3 style="margin-bottom: 16px; font-family: 'Outfit', sans-serif; color: var(--primary);">🤖 API de Claude (para Recetas con IA)</h3>
+                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">
+                    Configura tu API key de Anthropic para generar recetas con inteligencia artificial. Es gratis para uso limitado.
+                </p>
+                
+                <div class="form-group">
+                    <label class="form-label">API Key de Anthropic</label>
+                    <input type="password" id="anthropicApiKey" class="form-input" placeholder="sk-ant-...">
+                    <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">
+                        💡 Obtén tu API key gratis en <a href="https://console.anthropic.com" target="_blank" style="color: var(--primary);">console.anthropic.com</a>
+                    </p>
+                </div>
+                <button class="btn btn-primary" onclick="saveAnthropicKey()" style="width: 100%;">💾 Guardar API Key</button>
+            </div>
+
+            <div class="item-card" style="background: linear-gradient(135deg, rgba(45, 216, 129, 0.1), rgba(45, 216, 129, 0.05)); border-color: var(--primary);">
                 <h3 style="margin-bottom: 16px; font-family: 'Outfit', sans-serif; color: var(--primary);">💰 Configuración de Moneda</h3>
                 
                 <div class="form-group">
@@ -183,6 +203,22 @@
                 <p style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;">v1.0.0 - 2026</p>
             </div>
         </div>
+    </div>
+
+    <!-- Recipes Page -->
+    <div id="recipesPage" class="page">
+        <div class="section-header">
+            <h2 class="section-title">Recetas con IA</h2>
+            <button class="btn btn-primary btn-small" onclick="generateRecipeWithAI()">🤖 Generar</button>
+        </div>
+
+        <div class="filters" style="padding-bottom: 10px;">
+            <div class="filter-chip active" id="filter-all" onclick="filterRecipes('all')">Todas</div>
+            <div class="filter-chip" id="filter-favorites" onclick="filterRecipes('favorites')">⭐ Favoritas</div>
+            <div class="filter-chip" id="filter-generated" onclick="filterRecipes('generated')">🤖 Generadas</div>
+        </div>
+        
+        <div style="padding: 0 20px;" id="recipesContainer"></div>
     </div>
 
     <!-- Add/Edit Item Modal -->
@@ -271,6 +307,17 @@
         </div>
     </div>
 
+    <!-- Recipe Detail Modal -->
+    <div id="recipeModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="recipeTitle">Receta</h3>
+                <button class="close-btn" onclick="closeRecipeModal()">&times;</button>
+            </div>
+            <div id="recipeDetailContent" style="max-height: 60vh; overflow-y: auto;"></div>
+        </div>
+    </div>
+
     <!-- Bottom Navigation -->
     <div class="bottom-nav">
         <div class="nav-item active" onclick="switchPage('dashboard')">
@@ -280,6 +327,10 @@
         <div class="nav-item" onclick="switchPage('items')">
             <div class="nav-icon">📦</div>
             <div class="nav-label">Artículos</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('recipes')">
+            <div class="nav-icon">👨‍🍳</div>
+            <div class="nav-label">Recetas</div>
         </div>
         <div class="nav-item" onclick="switchPage('shopping')">
             <div class="nav-icon">🛒</div>

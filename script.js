@@ -156,6 +156,9 @@ let editingItemId = null;
 let shoppingCart = {}; // { itemId: { checked: bool, quantity: number, price: number } }
 let currentCurrency = localStorage.getItem('currency') || 'ARS';
 let confirmCallback = null;
+let recipes = JSON.parse(localStorage.getItem('recipes')) || [];
+let currentRecipeFilter = 'all';
+let anthropicApiKey = localStorage.getItem('anthropicApiKey') || '';
 
 // Currency symbols
 const currencySymbols = {
@@ -202,6 +205,7 @@ function switchPage(page) {
     if (page === 'items') renderItems();
     if (page === 'shopping') renderShoppingList();
     if (page === 'settings') renderSettings();
+    if (page === 'recipes') renderRecipes();
 }
 
 // Dashboard
@@ -227,6 +231,7 @@ function renderDashboard() {
     const lowStockItems = items.filter(item => item.stock <= item.minStock);
     
     document.getElementById('totalItems').textContent = items.length;
+    document.getElementById('vencidosItems').textContent = expiredItems.length;
     document.getElementById('expiredItems').textContent = expiringSoon.length;
     document.getElementById('lowStock').textContent = lowStockItems.length;
     
@@ -854,6 +859,11 @@ function renderSettings() {
     // Load saved currency
     document.getElementById('currencySelect').value = currentCurrency;
     
+    // Load saved API key
+    if (anthropicApiKey) {
+        document.getElementById('anthropicApiKey').value = anthropicApiKey;
+    }
+    
     // Update sync UI
     updateSyncUI();
     
@@ -1061,6 +1071,270 @@ window.dismissInstallBanner = function() {
     const banner = document.getElementById('install-banner');
     if (banner) banner.remove();
 };
+
+// ========================================
+// RECIPES SYSTEM WITH AI
+// ========================================
+
+function saveAnthropicKey() {
+    const key = document.getElementById('anthropicApiKey').value.trim();
+    if (!key) {
+        showToast('Ingresa una API key válida');
+        return;
+    }
+    
+    anthropicApiKey = key;
+    localStorage.setItem('anthropicApiKey', key);
+    showToast('✓ API key guardada');
+}
+
+async function generateRecipeWithAI() {
+    if (!anthropicApiKey) {
+        showToast('⚠️ Configura tu API key de Anthropic en Ajustes primero');
+        return;
+    }
+    
+    // Get available ingredients
+    const availableItems = items.filter(item => item.stock > 0);
+    
+    if (availableItems.length === 0) {
+        showToast('No tienes ingredientes en stock');
+        return;
+    }
+    
+    // Show loading state
+    const container = document.getElementById('recipesContainer');
+    container.innerHTML = `
+        <div class="generating-spinner">
+            <div class="spinner"></div>
+            <p style="margin-top: 20px; color: var(--text-secondary);">Generando receta con IA...</p>
+        </div>
+    `;
+    
+    try {
+        const ingredients = availableItems.map(item => 
+            `${item.name} (${item.stock} ${item.unit})`
+        ).join(', ');
+        
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': anthropicApiKey,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: 'claude-3-haiku-20240307',
+                max_tokens: 1500,
+                messages: [{
+                    role: 'user',
+                    content: `Crea UNA SOLA receta deliciosa usando SOLO estos ingredientes disponibles: ${ingredients}. 
+
+IMPORTANTE: 
+- Usa SOLO ingredientes de la lista
+- Si faltan ingredientes básicos (sal, aceite, agua), puedes mencionarlos
+- Responde SOLO en formato JSON válido, sin markdown, sin comentarios
+- No agregues texto antes ni después del JSON
+
+Formato JSON requerido:
+{
+  "nombre": "Nombre de la receta",
+  "descripcion": "Breve descripción atractiva",
+  "ingredientes": [
+    {"nombre": "ingrediente", "cantidad": "100g", "disponible": true}
+  ],
+  "pasos": [
+    "Paso 1...",
+    "Paso 2..."
+  ],
+  "tiempo": "30 minutos",
+  "porciones": "4 porciones"
+}`
+                }]
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Error en la API de Anthropic');
+        }
+        
+        const data = await response.json();
+        const recipeText = data.content[0].text;
+        
+        // Parse JSON from response
+        const recipe = JSON.parse(recipeText);
+        
+        // Save recipe
+        const newRecipe = {
+            id: Date.now().toString(),
+            ...recipe,
+            aiGenerated: true,
+            favorite: false,
+            createdAt: new Date().toISOString()
+        };
+        
+        recipes.push(newRecipe);
+        localStorage.setItem('recipes', JSON.stringify(recipes));
+        
+        renderRecipes();
+        showToast('✓ Receta generada exitosamente');
+        
+    } catch (error) {
+        console.error('Error generando receta:', error);
+        renderRecipes();
+        showToast('⚠️ Error generando receta. Verifica tu API key.');
+    }
+}
+
+function renderRecipes() {
+    const container = document.getElementById('recipesContainer');
+    
+    let filteredRecipes = recipes;
+    if (currentRecipeFilter === 'favorites') {
+        filteredRecipes = recipes.filter(r => r.favorite);
+    } else if (currentRecipeFilter === 'generated') {
+        filteredRecipes = recipes.filter(r => r.aiGenerated);
+    }
+    
+    if (filteredRecipes.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">👨‍🍳</div>
+                <p>No hay recetas${currentRecipeFilter !== 'all' ? ' en esta categoría' : ''}</p>
+                ${currentRecipeFilter === 'all' ? '<p style="font-size: 14px; margin-top: 12px; color: var(--text-secondary);">Toca "🤖 Generar" para crear una receta con IA</p>' : ''}
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = filteredRecipes.map(recipe => renderRecipeCard(recipe)).join('');
+}
+
+function renderRecipeCard(recipe) {
+    const availableIngredients = items.filter(item => item.stock > 0).map(i => i.name.toLowerCase());
+    const ingredientsPreview = recipe.ingredientes.slice(0, 3).map(ing => {
+        const available = availableIngredients.some(ai => 
+            ai.includes(ing.nombre.toLowerCase()) || ing.nombre.toLowerCase().includes(ai)
+        );
+        return `<span class="ingredient-tag ${available ? 'available' : ''}">${ing.nombre}</span>`;
+    }).join('');
+    
+    const moreCount = recipe.ingredientes.length > 3 ? ` +${recipe.ingredientes.length - 3}` : '';
+    
+    return `
+        <div class="recipe-card" onclick="viewRecipeDetail('${recipe.id}')">
+            <div class="recipe-header">
+                <div class="recipe-title">${recipe.nombre}</div>
+                <div class="recipe-favorite" onclick="event.stopPropagation(); toggleFavorite('${recipe.id}')">
+                    ${recipe.favorite ? '⭐' : '☆'}
+                </div>
+            </div>
+            <div class="recipe-description">${recipe.descripcion}</div>
+            <div style="display: flex; gap: 8px; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                <span>⏱️ ${recipe.tiempo || 'N/A'}</span>
+                <span>•</span>
+                <span>🍽️ ${recipe.porciones || 'N/A'}</span>
+            </div>
+            <div class="recipe-ingredients-preview">
+                ${ingredientsPreview}${moreCount}
+            </div>
+            ${recipe.aiGenerated ? '<div class="recipe-ai-badge">🤖 Generada con IA</div>' : ''}
+        </div>
+    `;
+}
+
+function filterRecipes(filter) {
+    currentRecipeFilter = filter;
+    
+    // Update filter chips
+    document.querySelectorAll('#recipesPage .filter-chip').forEach(chip => {
+        chip.classList.remove('active');
+    });
+    document.getElementById(`filter-${filter}`).classList.add('active');
+    
+    renderRecipes();
+}
+
+function toggleFavorite(id) {
+    const recipe = recipes.find(r => r.id === id);
+    if (recipe) {
+        recipe.favorite = !recipe.favorite;
+        localStorage.setItem('recipes', JSON.stringify(recipes));
+        renderRecipes();
+    }
+}
+
+function viewRecipeDetail(id) {
+    const recipe = recipes.find(r => r.id === id);
+    if (!recipe) return;
+    
+    const availableIngredients = items.filter(item => item.stock > 0).map(i => i.name.toLowerCase());
+    
+    const ingredientsList = recipe.ingredientes.map(ing => {
+        const available = availableIngredients.some(ai => 
+            ai.includes(ing.nombre.toLowerCase()) || ing.nombre.toLowerCase().includes(ai)
+        );
+        return `
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg-input); border-radius: 6px; margin-bottom: 6px;">
+                <span style="font-size: 18px;">${available ? '✅' : '❌'}</span>
+                <span style="flex: 1;">${ing.cantidad} ${ing.nombre}</span>
+            </div>
+        `;
+    }).join('');
+    
+    const stepsList = recipe.pasos.map((paso, index) => `
+        <div class="recipe-step">
+            <span class="recipe-step-number">Paso ${index + 1}:</span>
+            <span>${paso}</span>
+        </div>
+    `).join('');
+    
+    document.getElementById('recipeTitle').textContent = recipe.nombre;
+    document.getElementById('recipeDetailContent').innerHTML = `
+        <div class="recipe-detail-section">
+            <p style="color: var(--text-secondary); line-height: 1.6;">${recipe.descripcion}</p>
+            <div style="display: flex; gap: 16px; margin-top: 12px; padding: 12px; background: var(--bg-input); border-radius: 8px;">
+                <span>⏱️ ${recipe.tiempo || 'N/A'}</span>
+                <span>🍽️ ${recipe.porciones || 'N/A'}</span>
+            </div>
+        </div>
+        
+        <div class="recipe-detail-section">
+            <div class="recipe-detail-title">📝 Ingredientes</div>
+            ${ingredientsList}
+        </div>
+        
+        <div class="recipe-detail-section">
+            <div class="recipe-detail-title">👨‍🍳 Preparación</div>
+            ${stepsList}
+        </div>
+        
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button class="btn btn-danger" onclick="deleteRecipe('${recipe.id}')" style="flex: 1;">
+                🗑️ Eliminar
+            </button>
+            <button class="btn btn-primary" onclick="closeRecipeModal()" style="flex: 1;">
+                Cerrar
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('recipeModal').classList.add('active');
+}
+
+function closeRecipeModal() {
+    document.getElementById('recipeModal').classList.remove('active');
+}
+
+function deleteRecipe(id) {
+    if (confirm('¿Estás seguro de eliminar esta receta?')) {
+        recipes = recipes.filter(r => r.id !== id);
+        localStorage.setItem('recipes', JSON.stringify(recipes));
+        closeRecipeModal();
+        renderRecipes();
+        showToast('Receta eliminada');
+    }
+}
 
 // Initialize
 initFirebase();
