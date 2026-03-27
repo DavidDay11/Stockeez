@@ -154,6 +154,36 @@ let categories = JSON.parse(localStorage.getItem('categories')) || [
 let currentFilter = 'Todas';
 let editingItemId = null;
 let shoppingCart = {}; // { itemId: { checked: bool, quantity: number, price: number } }
+let currentCurrency = localStorage.getItem('currency') || 'ARS';
+let confirmCallback = null;
+
+// Currency symbols
+const currencySymbols = {
+    'ARS': 'AR$',
+    'USD': 'USD',
+    'EUR': 'EUR',
+    'BRL': 'R$',
+    'CLP': 'CLP',
+    'MXN': 'MXN',
+    'COP': 'COP',
+    'UYU': 'UYU'
+};
+
+function getCurrencySymbol() {
+    return currencySymbols[currentCurrency] || currentCurrency;
+}
+
+function changeCurrency(currency) {
+    currentCurrency = currency;
+    localStorage.setItem('currency', currency);
+    
+    // Refresh all views to update currency symbols
+    renderDashboard();
+    renderItems();
+    renderShoppingList();
+    
+    showToast(`Moneda cambiada a ${currencySymbols[currency]}`);
+}
 
 function saveToStorage() {
     localStorage.setItem('stockItems', JSON.stringify(items));
@@ -177,11 +207,21 @@ function switchPage(page) {
 // Dashboard
 function renderDashboard() {
     const now = new Date();
+    
+    // Artículos vencidos (fecha pasada)
+    const expiredItems = items.filter(item => {
+        if (!item.expiryDate) return false;
+        const expiryDate = new Date(item.expiryDate);
+        const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+        return daysUntilExpiry < 0;
+    });
+    
+    // Artículos por vencer (próximos 7 días)
     const expiringSoon = items.filter(item => {
         if (!item.expiryDate) return false;
         const expiryDate = new Date(item.expiryDate);
         const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
-        return daysUntilExpiry <= 7 && daysUntilExpiry >= 0;
+        return daysUntilExpiry >= 0 && daysUntilExpiry <= 7;
     });
     
     const lowStockItems = items.filter(item => item.stock <= item.minStock);
@@ -191,7 +231,9 @@ function renderDashboard() {
     document.getElementById('lowStock').textContent = lowStockItems.length;
     
     const alertsContainer = document.getElementById('alertsContainer');
-    const allAlerts = [...expiringSoon, ...lowStockItems];
+    
+    // Mostrar vencidos primero, luego por vencer, luego stock bajo
+    const allAlerts = [...expiredItems, ...expiringSoon, ...lowStockItems];
     
     if (allAlerts.length === 0) {
         alertsContainer.innerHTML = `
@@ -201,7 +243,33 @@ function renderDashboard() {
             </div>
         `;
     } else {
-        alertsContainer.innerHTML = allAlerts.slice(0, 6).map(item => renderItemCard(item)).join('');
+        let alertsHTML = '';
+        
+        // Sección de vencidos (si hay)
+        if (expiredItems.length > 0) {
+            alertsHTML += `
+                <div style="grid-column: 1 / -1; margin-bottom: 8px;">
+                    <h3 style="font-family: 'Outfit', sans-serif; font-size: 16px; color: var(--danger); display: flex; align-items: center; gap: 8px;">
+                        <span>⚠️</span> Artículos Vencidos (${expiredItems.length})
+                    </h3>
+                </div>
+            `;
+            alertsHTML += expiredItems.slice(0, 3).map(item => renderItemCard(item)).join('');
+        }
+        
+        // Sección de por vencer (si hay)
+        if (expiringSoon.length > 0) {
+            alertsHTML += `
+                <div style="grid-column: 1 / -1; margin-bottom: 8px; margin-top: ${expiredItems.length > 0 ? '20px' : '0'};">
+                    <h3 style="font-family: 'Outfit', sans-serif; font-size: 16px; color: var(--warning); display: flex; align-items: center; gap: 8px;">
+                        <span>⚡</span> Por Vencer (${expiringSoon.length})
+                    </h3>
+                </div>
+            `;
+            alertsHTML += expiringSoon.slice(0, 3).map(item => renderItemCard(item)).join('');
+        }
+        
+        alertsContainer.innerHTML = alertsHTML;
     }
 }
 
@@ -247,6 +315,7 @@ function renderItemCard(item) {
     const expiryInfo = getExpiryInfo(item);
     const unit = item.unit || 'unidades';
     const stockStatus = item.stock <= item.minStock ? `⚠️ Stock Bajo: ${item.stock} ${unit}` : `${item.stock} ${unit}`;
+    const currencySymbol = getCurrencySymbol();
     
     return `
         <div class="item-card">
@@ -262,7 +331,7 @@ function renderItemCard(item) {
                 </div>
                 <div class="info-block">
                     <div class="info-label">Precio</div>
-                    <div class="info-value">AR$ ${item.price ? item.price.toFixed(2) : '-'}</div>
+                    <div class="info-value">${currencySymbol} ${item.price ? item.price.toFixed(2) : '-'}</div>
                 </div>
             </div>
             
@@ -319,6 +388,13 @@ function openAddItemModal() {
     document.getElementById('modalTitle').textContent = 'Agregar Artículo';
     document.getElementById('itemForm').reset();
     populateCategorySelect();
+    
+    // Update price label with current currency
+    const priceLabel = document.getElementById('priceLabelCurrency');
+    if (priceLabel) {
+        priceLabel.textContent = `Precio (${getCurrencySymbol()})`;
+    }
+    
     document.getElementById('itemModal').classList.add('active');
 }
 
@@ -338,6 +414,12 @@ function editItem(id) {
     
     populateCategorySelect();
     document.getElementById('itemCategory').value = item.category;
+    
+    // Update price label with current currency
+    const priceLabel = document.getElementById('priceLabelCurrency');
+    if (priceLabel) {
+        priceLabel.textContent = `Precio (${getCurrencySymbol()})`;
+    }
     
     document.getElementById('itemModal').classList.add('active');
 }
@@ -394,31 +476,61 @@ function saveItem(event) {
         );
         
         if (duplicate) {
-            // Ask user if they want to add to existing
-            if (confirm(`Ya existe "${duplicate.name}" con la misma fecha de vencimiento (${new Date(duplicate.expiryDate).toLocaleDateString('es-AR')}).\n\nStock actual: ${duplicate.stock} ${duplicate.unit}\n\n¿Quieres SUMAR ${stock} ${unit} al stock existente?`)) {
-                duplicate.stock += stock;
-                
-                // Update price if provided
-                if (price && price !== duplicate.price) {
-                    duplicate.priceHistory = duplicate.priceHistory || [];
-                    duplicate.priceHistory.push({
-                        price: price,
-                        date: new Date().toISOString()
-                    });
-                    duplicate.price = price;
+            // Use custom styled confirmation modal
+            const currencySymbol = getCurrencySymbol();
+            const expiryDateFormatted = new Date(duplicate.expiryDate).toLocaleDateString('es-AR');
+            
+            showConfirmModal(
+                '🔄 Producto Duplicado',
+                `
+                <div style="background: var(--bg-input); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <div style="font-weight: 600; font-size: 16px; margin-bottom: 12px; color: var(--text);">
+                        ${duplicate.name}
+                    </div>
+                    <div style="display: grid; gap: 8px; font-size: 14px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-secondary);">Fecha de vencimiento:</span>
+                            <span style="color: var(--text); font-weight: 600;">${expiryDateFormatted}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-secondary);">Stock actual:</span>
+                            <span style="color: var(--primary); font-weight: 600;">${duplicate.stock} ${duplicate.unit}</span>
+                        </div>
+                    </div>
+                </div>
+                <p style="color: var(--text); font-size: 14px; margin-bottom: 12px;">
+                    ¿Quieres <strong style="color: var(--primary);">SUMAR ${stock} ${unit}</strong> al stock existente?
+                </p>
+                <p style="color: var(--text-secondary); font-size: 13px;">
+                    Stock resultante: <strong style="color: var(--primary);">${duplicate.stock + stock} ${unit}</strong>
+                </p>
+                `,
+                (confirmed) => {
+                    if (confirmed) {
+                        duplicate.stock += stock;
+                        
+                        // Update price if provided
+                        if (price && price !== duplicate.price) {
+                            duplicate.priceHistory = duplicate.priceHistory || [];
+                            duplicate.priceHistory.push({
+                                price: price,
+                                date: new Date().toISOString()
+                            });
+                            duplicate.price = price;
+                        }
+                        
+                        saveToStorage();
+                        syncToFirebase();
+                        closeModal();
+                        renderItems();
+                        renderDashboard();
+                        showToast(`✓ Stock actualizado: ${duplicate.stock} ${duplicate.unit}`);
+                    } else {
+                        closeModal();
+                    }
                 }
-                
-                saveToStorage();
-                syncToFirebase();
-                closeModal();
-                renderItems();
-                renderDashboard();
-                showToast(`Stock actualizado: ${duplicate.stock} ${duplicate.unit}`);
-                return;
-            } else {
-                closeModal();
-                return;
-            }
+            );
+            return;
         }
         
         // Add new
@@ -445,6 +557,22 @@ function saveItem(event) {
     showToast(editingItemId ? 'Artículo actualizado' : 'Artículo agregado');
 }
 
+// Custom Confirmation Modal
+function showConfirmModal(title, message, callback) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').innerHTML = message;
+    confirmCallback = callback;
+    document.getElementById('confirmModal').classList.add('active');
+}
+
+function closeConfirmModal(result) {
+    document.getElementById('confirmModal').classList.remove('active');
+    if (confirmCallback) {
+        confirmCallback(result);
+        confirmCallback = null;
+    }
+}
+
 function deleteItem(id) {
     if (confirm('¿Estás seguro de eliminar este artículo?')) {
         items = items.filter(i => i.id !== id);
@@ -462,6 +590,7 @@ function viewPriceHistory(id) {
     if (!item) return;
     
     const content = document.getElementById('priceHistoryContent');
+    const currencySymbol = getCurrencySymbol();
     
     if (!item.priceHistory || item.priceHistory.length === 0) {
         content.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Sin historial de precios</p>';
@@ -473,7 +602,7 @@ function viewPriceHistory(id) {
                 ${history.map(entry => `
                     <div class="price-entry">
                         <span>${new Date(entry.date).toLocaleDateString('es-AR')}</span>
-                        <span style="font-weight: 600; color: var(--primary)">AR$ ${entry.price.toFixed(2)}</span>
+                        <span style="font-weight: 600; color: var(--primary)">${currencySymbol} ${entry.price.toFixed(2)}</span>
                     </div>
                 `).join('')}
             </div>
@@ -491,6 +620,7 @@ function closePriceModal() {
 function renderShoppingList() {
     const container = document.getElementById('shoppingListContainer');
     const shoppingItems = items.filter(item => item.stock <= item.minStock);
+    const currencySymbol = getCurrencySymbol();
     
     if (shoppingItems.length === 0) {
         container.innerHTML = `
@@ -525,7 +655,7 @@ function renderShoppingList() {
                             <div style="font-weight: 600; font-size: 16px;">${item.name}</div>
                             <div style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">
                                 ${item.category} • Falta: ${(item.minStock - item.stock).toFixed(1)} ${item.unit || 'unidades'} • 
-                                ${item.price ? `Último: AR$ ${item.price.toFixed(2)}` : 'Sin precio'}
+                                ${item.price ? `Último: ${currencySymbol} ${item.price.toFixed(2)}` : 'Sin precio'}
                             </div>
                         </div>
                     </div>
@@ -542,7 +672,7 @@ function renderShoppingList() {
                                    onchange="updateCartItem('${item.id}', 'quantity', this.value)">
                         </div>
                         <div>
-                            <div class="inline-label">Precio pagado (AR$)</div>
+                            <div class="inline-label">Precio pagado (${currencySymbol})</div>
                             <input type="number" 
                                    class="inline-input" 
                                    placeholder="0.00"
@@ -560,7 +690,7 @@ function renderShoppingList() {
             <div class="shopping-total-card">
                 <div class="shopping-total-row" style="margin-bottom: 16px;">
                     <div class="shopping-total-label">Total de Compra</div>
-                    <div class="shopping-total-value">AR$ ${total.toFixed(2)}</div>
+                    <div class="shopping-total-value">${currencySymbol} ${total.toFixed(2)}</div>
                 </div>
                 <div style="color: rgba(255,255,255,0.8); font-size: 13px; margin-bottom: 16px;">
                     ${itemsChecked} artículo${itemsChecked !== 1 ? 's' : ''} seleccionado${itemsChecked !== 1 ? 's' : ''}
@@ -649,6 +779,7 @@ function exportToPDF() {
     
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
+    const currencySymbol = getCurrencySymbol();
     
     doc.setFontSize(20);
     doc.text('Lista de Compras - StockEz', 20, 20);
@@ -673,7 +804,7 @@ function exportToPDF() {
         doc.text(`   Categoria: ${item.category}`, 20, y + 5);
         doc.text(`   Necesitas: ${needed > 0 ? needed.toFixed(1) : 'Reponer'} ${item.unit || 'unidades'}`, 20, y + 10);
         if (item.price) {
-            doc.text(`   Ultimo precio: AR$ ${item.price.toFixed(2)}`, 20, y + 15);
+            doc.text(`   Ultimo precio: ${currencySymbol} ${item.price.toFixed(2)}`, 20, y + 15);
             y += 22;
         } else {
             y += 17;
@@ -693,7 +824,8 @@ function exportToExcel() {
         return;
     }
     
-    let csv = 'Nombre,Categoría,Stock Actual,Unidad,Stock Mínimo,Cantidad Necesaria,Último Precio\n';
+    const currencySymbol = getCurrencySymbol();
+    let csv = `Nombre,Categoría,Stock Actual,Unidad,Stock Mínimo,Cantidad Necesaria,Último Precio (${currencySymbol})\n`;
     
     shoppingItems.forEach(item => {
         const needed = Math.max(0, item.minStock - item.stock);
@@ -718,6 +850,9 @@ function renderSettings() {
             ${categories.length > 1 ? `<button class="delete-category" onclick="deleteCategory('${cat}')">×</button>` : ''}
         </div>
     `).join('');
+    
+    // Load saved currency
+    document.getElementById('currencySelect').value = currentCurrency;
     
     // Update sync UI
     updateSyncUI();

@@ -143,6 +143,24 @@
                 </div>
             </div>
             
+            <div class="item-card" style="background: linear-gradient(135deg, rgba(45, 216, 129, 0.1), rgba(45, 216, 129, 0.05)); border-color: var(--primary);">
+                <h3 style="margin-bottom: 16px; font-family: 'Outfit', sans-serif; color: var(--primary);">💰 Configuración de Moneda</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">Selecciona tu moneda</label>
+                    <select id="currencySelect" class="form-select" onchange="changeCurrency(this.value)">
+                        <option value="ARS">🇦🇷 Peso Argentino (AR$)</option>
+                        <option value="USD">🇺🇸 Dólar Estadounidense (USD)</option>
+                        <option value="EUR">🇪🇺 Euro (EUR)</option>
+                        <option value="BRL">🇧🇷 Real Brasileño (R$)</option>
+                        <option value="CLP">🇨🇱 Peso Chileno (CLP)</option>
+                        <option value="MXN">🇲🇽 Peso Mexicano (MXN)</option>
+                        <option value="COP">🇨🇴 Peso Colombiano (COP)</option>
+                        <option value="UYU">🇺🇾 Peso Uruguayo (UYU)</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="item-card category-manager">
                 <h3 style="margin-bottom: 16px; font-family: 'Outfit', sans-serif;">Gestionar Categorías</h3>
                 
@@ -157,6 +175,12 @@
             <div class="item-card" style="margin-top: 20px;">
                 <h3 style="margin-bottom: 16px; font-family: 'Outfit', sans-serif; color: var(--danger);">Zona de Peligro</h3>
                 <button class="btn btn-danger" onclick="clearAllData()" style="width: 100%;">🗑️ Borrar Todos los Datos</button>
+            </div>
+
+            <div class="item-card" style="margin-top: 20px; background: transparent; border: none; text-align: center;">
+                <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 8px;">Desarrollado con ❤️ por</p>
+                <p style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: var(--primary);">ModSystems</p>
+                <p style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;">v1.0.0 - 2026</p>
             </div>
         </div>
     </div>
@@ -211,7 +235,7 @@
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Precio (AR$)</label>
+                    <label class="form-label" id="priceLabelCurrency">Precio (AR$)</label>
                     <input type="number" id="itemPrice" class="form-input" min="0" step="0.01">
                 </div>
                 
@@ -230,6 +254,20 @@
                 <button class="close-btn" onclick="closePriceModal()">&times;</button>
             </div>
             <div id="priceHistoryContent"></div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="confirmTitle">Confirmar</h3>
+            </div>
+            <div id="confirmMessage" style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 24px;"></div>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-secondary" onclick="closeConfirmModal(false)" style="flex: 1;">Cancelar</button>
+                <button class="btn btn-primary" onclick="closeConfirmModal(true)" style="flex: 1;">Confirmar</button>
+            </div>
         </div>
     </div>
 
