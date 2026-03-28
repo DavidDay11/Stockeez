@@ -19,7 +19,11 @@ function generateDeviceId() {
 
 function initFirebase() {
     // Only initialize if config is properly set
-    if (!isConfigured) {
+    const firebaseIsConfigured = typeof firebaseConfig !== 'undefined' && 
+                                  firebaseConfig.apiKey && 
+                                  firebaseConfig.apiKey !== 'TU_API_KEY_AQUI';
+    
+    if (!firebaseIsConfigured) {
         console.log('📱 Modo local: Firebase no configurado');
         return;
     }
@@ -158,7 +162,12 @@ let currentCurrency = localStorage.getItem('currency') || 'ARS';
 let confirmCallback = null;
 let recipes = JSON.parse(localStorage.getItem('recipes')) || [];
 let currentRecipeFilter = 'all';
-let anthropicApiKey = typeof anthropicConfig !== 'undefined' && isAnthropicConfigured ? anthropicConfig.apiKey : '';
+
+// Get Anthropic API key from config.js
+let anthropicApiKey = '';
+if (typeof anthropicConfig !== 'undefined' && anthropicConfig.apiKey && anthropicConfig.apiKey !== 'TU_ANTHROPIC_API_KEY_AQUI') {
+    anthropicApiKey = anthropicConfig.apiKey;
+}
 
 // Currency symbols
 const currencySymbols = {
@@ -1106,7 +1115,8 @@ window.dismissInstallBanner = function() {
 
 async function generateRecipeWithAI() {
     if (!anthropicApiKey) {
-        showToast('⚠️ Configura tu API key de Anthropic en config.js primero');
+        showToast('⚠️ Configura tu API key de Anthropic en config.js');
+        console.error('API key de Anthropic no configurada. Edita config.js y agrega tu API key.');
         return;
     }
     
@@ -1170,15 +1180,40 @@ Formato JSON requerido:
             })
         });
         
+        console.log('Status de respuesta:', response.status);
+        
         if (!response.ok) {
-            throw new Error('Error en la API de Anthropic');
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Error de la API:', errorData);
+            throw new Error(`Error ${response.status}: ${errorData.error?.message || 'Error en la API de Anthropic'}`);
         }
         
         const data = await response.json();
+        console.log('Respuesta de la API:', data);
+        
         const recipeText = data.content[0].text;
+        console.log('Texto de receta:', recipeText);
+        
+        // Limpiar el texto de markdown y otros extras
+        let cleanedText = recipeText.trim();
+        
+        // Remover bloques de código markdown (```json ... ```)
+        cleanedText = cleanedText.replace(/```json\s*/g, '');
+        cleanedText = cleanedText.replace(/```\s*/g, '');
+        
+        // Buscar el JSON (entre { y })
+        const jsonStart = cleanedText.indexOf('{');
+        const jsonEnd = cleanedText.lastIndexOf('}') + 1;
+        
+        if (jsonStart === -1 || jsonEnd === 0) {
+            throw new Error('No se encontró JSON válido en la respuesta');
+        }
+        
+        cleanedText = cleanedText.substring(jsonStart, jsonEnd);
+        console.log('JSON limpio:', cleanedText);
         
         // Parse JSON from response
-        const recipe = JSON.parse(recipeText);
+        const recipe = JSON.parse(cleanedText);
         
         // Save recipe
         const newRecipe = {
@@ -1196,9 +1231,28 @@ Formato JSON requerido:
         showToast('✓ Receta generada exitosamente');
         
     } catch (error) {
-        console.error('Error generando receta:', error);
+        console.error('Error completo generando receta:', error);
+        console.error('Tipo de error:', error.name);
+        console.error('Mensaje:', error.message);
+        
         renderRecipes();
-        showToast('⚠️ Error generando receta. Verifica tu API key.');
+        
+        // Mensaje más específico según el tipo de error
+        let errorMsg = '⚠️ Error generando receta';
+        if (error.message.includes('API')) {
+            errorMsg += '. Verifica tu API key';
+        } else if (error.message.includes('JSON')) {
+            errorMsg += '. Error en formato de respuesta';
+        } else if (error.message.includes('Network') || error.message.includes('fetch')) {
+            errorMsg += '. Error de conexión';
+        }
+        
+        showToast(errorMsg);
+        
+        // Mostrar error detallado en consola para debugging
+        console.log('=== DEBUG INFO ===');
+        console.log('API Key configurada:', anthropicApiKey ? 'Sí (largo: ' + anthropicApiKey.length + ')' : 'No');
+        console.log('Error stack:', error.stack);
     }
 }
 
