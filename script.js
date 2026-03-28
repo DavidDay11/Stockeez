@@ -163,12 +163,6 @@ let confirmCallback = null;
 let recipes = JSON.parse(localStorage.getItem('recipes')) || [];
 let currentRecipeFilter = 'all';
 
-// Get Anthropic API key from config.js
-let anthropicApiKey = '';
-if (typeof anthropicConfig !== 'undefined' && anthropicConfig.apiKey && anthropicConfig.apiKey !== 'TU_ANTHROPIC_API_KEY_AQUI') {
-    anthropicApiKey = anthropicConfig.apiKey;
-}
-
 // Currency symbols
 const currencySymbols = {
     'ARS': 'AR$',
@@ -1114,12 +1108,6 @@ window.dismissInstallBanner = function() {
 // ========================================
 
 async function generateRecipeWithAI() {
-    if (!anthropicApiKey) {
-        showToast('⚠️ Configura tu API key de Anthropic en config.js');
-        console.error('API key de Anthropic no configurada. Edita config.js y agrega tu API key.');
-        return;
-    }
-    
     // Get available ingredients
     const availableItems = items.filter(item => item.stock > 0);
     
@@ -1142,41 +1130,14 @@ async function generateRecipeWithAI() {
             `${item.name} (${item.stock} ${item.unit})`
         ).join(', ');
         
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
+        // Llamar a la Netlify Function en lugar de directamente a Anthropic
+        const response = await fetch('/.netlify/functions/generate-recipe', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': anthropicApiKey,
-                'anthropic-version': '2023-06-01'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'claude-3-haiku-20240307',
-                max_tokens: 1500,
-                messages: [{
-                    role: 'user',
-                    content: `Crea UNA SOLA receta deliciosa usando SOLO estos ingredientes disponibles: ${ingredients}. 
-
-IMPORTANTE: 
-- Usa SOLO ingredientes de la lista
-- Si faltan ingredientes básicos (sal, aceite, agua), puedes mencionarlos
-- Responde SOLO en formato JSON válido, sin markdown, sin comentarios
-- No agregues texto antes ni después del JSON
-
-Formato JSON requerido:
-{
-  "nombre": "Nombre de la receta",
-  "descripcion": "Breve descripción atractiva",
-  "ingredientes": [
-    {"nombre": "ingrediente", "cantidad": "100g", "disponible": true}
-  ],
-  "pasos": [
-    "Paso 1...",
-    "Paso 2..."
-  ],
-  "tiempo": "30 minutos",
-  "porciones": "4 porciones"
-}`
-                }]
+                ingredients: ingredients
             })
         });
         
@@ -1184,36 +1145,14 @@ Formato JSON requerido:
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            console.error('Error de la API:', errorData);
-            throw new Error(`Error ${response.status}: ${errorData.error?.message || 'Error en la API de Anthropic'}`);
+            console.error('Error de la función:', errorData);
+            throw new Error(errorData.error || 'Error al generar receta');
         }
         
         const data = await response.json();
-        console.log('Respuesta de la API:', data);
+        console.log('Respuesta de la función:', data);
         
-        const recipeText = data.content[0].text;
-        console.log('Texto de receta:', recipeText);
-        
-        // Limpiar el texto de markdown y otros extras
-        let cleanedText = recipeText.trim();
-        
-        // Remover bloques de código markdown (```json ... ```)
-        cleanedText = cleanedText.replace(/```json\s*/g, '');
-        cleanedText = cleanedText.replace(/```\s*/g, '');
-        
-        // Buscar el JSON (entre { y })
-        const jsonStart = cleanedText.indexOf('{');
-        const jsonEnd = cleanedText.lastIndexOf('}') + 1;
-        
-        if (jsonStart === -1 || jsonEnd === 0) {
-            throw new Error('No se encontró JSON válido en la respuesta');
-        }
-        
-        cleanedText = cleanedText.substring(jsonStart, jsonEnd);
-        console.log('JSON limpio:', cleanedText);
-        
-        // Parse JSON from response
-        const recipe = JSON.parse(cleanedText);
+        const recipe = data.recipe;
         
         // Save recipe
         const newRecipe = {
@@ -1239,19 +1178,20 @@ Formato JSON requerido:
         
         // Mensaje más específico según el tipo de error
         let errorMsg = '⚠️ Error generando receta';
-        if (error.message.includes('API')) {
-            errorMsg += '. Verifica tu API key';
+        if (error.message.includes('API key no configurada')) {
+            errorMsg = '⚠️ Configura la API key en Netlify (ver documentación)';
         } else if (error.message.includes('JSON')) {
             errorMsg += '. Error en formato de respuesta';
         } else if (error.message.includes('Network') || error.message.includes('fetch')) {
             errorMsg += '. Error de conexión';
+        } else if (error.message) {
+            errorMsg = `⚠️ ${error.message}`;
         }
         
         showToast(errorMsg);
         
         // Mostrar error detallado en consola para debugging
         console.log('=== DEBUG INFO ===');
-        console.log('API Key configurada:', anthropicApiKey ? 'Sí (largo: ' + anthropicApiKey.length + ')' : 'No');
         console.log('Error stack:', error.stack);
     }
 }
