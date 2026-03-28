@@ -1,5 +1,5 @@
 // ========================================
-// StockEz - GESTIÓN INTELIGENTE DE DESPENSA
+// STOCKHOGAR - GESTIÓN INTELIGENTE DE DESPENSA
 // ========================================
 
 // Firebase Configuration and Initialization
@@ -158,7 +158,7 @@ let currentCurrency = localStorage.getItem('currency') || 'ARS';
 let confirmCallback = null;
 let recipes = JSON.parse(localStorage.getItem('recipes')) || [];
 let currentRecipeFilter = 'all';
-let anthropicApiKey = localStorage.getItem('anthropicApiKey') || '';
+let anthropicApiKey = typeof anthropicConfig !== 'undefined' && isAnthropicConfigured ? anthropicConfig.apiKey : '';
 
 // Currency symbols
 const currencySymbols = {
@@ -579,14 +579,35 @@ function closeConfirmModal(result) {
 }
 
 function deleteItem(id) {
-    if (confirm('¿Estás seguro de eliminar este artículo?')) {
-        items = items.filter(i => i.id !== id);
-        saveToStorage();
-        syncToFirebase();
-        renderItems();
-        renderDashboard();
-        showToast('Artículo eliminado');
-    }
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    
+    showConfirmModal(
+        '🗑️ Eliminar Artículo',
+        `
+        <div style="background: var(--bg-input); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+            <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px; color: var(--text);">
+                ${item.name}
+            </div>
+            <div style="color: var(--text-secondary); font-size: 14px;">
+                ${item.category} • ${item.stock} ${item.unit}
+            </div>
+        </div>
+        <p style="color: var(--text); font-size: 14px;">
+            ¿Estás seguro de eliminar este artículo?
+        </p>
+        `,
+        (confirmed) => {
+            if (confirmed) {
+                items = items.filter(i => i.id !== id);
+                saveToStorage();
+                syncToFirebase();
+                renderItems();
+                renderDashboard();
+                showToast('Artículo eliminado');
+            }
+        }
+    );
 }
 
 // Price History
@@ -859,11 +880,6 @@ function renderSettings() {
     // Load saved currency
     document.getElementById('currencySelect').value = currentCurrency;
     
-    // Load saved API key
-    if (anthropicApiKey) {
-        document.getElementById('anthropicApiKey').value = anthropicApiKey;
-    }
-    
     // Update sync UI
     updateSyncUI();
     
@@ -925,18 +941,30 @@ function deleteCategory(category) {
 }
 
 function clearAllData() {
-    if (confirm('⚠️ ADVERTENCIA: Esto eliminará TODOS los artículos y configuraciones. ¿Estás seguro?')) {
-        if (confirm('¿Estás REALMENTE seguro? Esta acción no se puede deshacer.')) {
-            items = [];
-            categories = ['Carnes', 'Verduras', 'Despensa', 'Higiene', 'Limpieza', 'Lácteos', 'Bebidas'];
-            saveToStorage();
-            syncToFirebase();
-            renderDashboard();
-            renderItems();
-            renderSettings();
-            showToast('Todos los datos han sido eliminados');
+    showConfirmModal(
+        '⚠️ Borrar Todos los Datos',
+        '<p style="color: var(--danger); font-weight: 600; margin-bottom: 12px;">ADVERTENCIA: Esta acción es irreversible</p><p>Se eliminarán todos los artículos, recetas, categorías y configuraciones.</p><p style="margin-top: 12px;">¿Estás seguro de continuar?</p>',
+        (confirmed) => {
+            if (confirmed) {
+                showConfirmModal(
+                    '⚠️ Confirmación Final',
+                    '<p style="color: var(--danger); font-weight: 600;">¿Estás REALMENTE seguro?</p><p style="margin-top: 12px;">Esta acción no se puede deshacer.</p>',
+                    (reallyConfirmed) => {
+                        if (reallyConfirmed) {
+                            items = [];
+                            categories = ['Carnes', 'Verduras', 'Despensa', 'Higiene', 'Limpieza', 'Lácteos', 'Bebidas'];
+                            saveToStorage();
+                            syncToFirebase();
+                            renderDashboard();
+                            renderItems();
+                            renderSettings();
+                            showToast('Todos los datos han sido eliminados');
+                        }
+                    }
+                );
+            }
         }
-    }
+    );
 }
 
 // Toast Notifications
@@ -988,7 +1016,7 @@ document.getElementById('manifest-placeholder').setAttribute('href', manifestURL
 // Register Service Worker
 if ('serviceWorker' in navigator) {
     const swCode = `
-        const CACHE_NAME = 'StockEz-v1';
+        const CACHE_NAME = 'stockhogar-v1';
         const urlsToCache = ['./', '/'];
         
         self.addEventListener('install', (event) => {
@@ -1076,21 +1104,9 @@ window.dismissInstallBanner = function() {
 // RECIPES SYSTEM WITH AI
 // ========================================
 
-function saveAnthropicKey() {
-    const key = document.getElementById('anthropicApiKey').value.trim();
-    if (!key) {
-        showToast('Ingresa una API key válida');
-        return;
-    }
-    
-    anthropicApiKey = key;
-    localStorage.setItem('anthropicApiKey', key);
-    showToast('✓ API key guardada');
-}
-
 async function generateRecipeWithAI() {
     if (!anthropicApiKey) {
-        showToast('⚠️ Configura tu API key de Anthropic en Ajustes primero');
+        showToast('⚠️ Configura tu API key de Anthropic en config.js primero');
         return;
     }
     
@@ -1327,13 +1343,20 @@ function closeRecipeModal() {
 }
 
 function deleteRecipe(id) {
-    if (confirm('¿Estás seguro de eliminar esta receta?')) {
-        recipes = recipes.filter(r => r.id !== id);
-        localStorage.setItem('recipes', JSON.stringify(recipes));
-        closeRecipeModal();
-        renderRecipes();
-        showToast('Receta eliminada');
-    }
+    const recipe = recipes.find(r => r.id === id);
+    showConfirmModal(
+        '🗑️ Eliminar Receta',
+        `<p>¿Estás seguro de eliminar la receta <strong>"${recipe?.nombre || 'esta receta'}"</strong>?</p><p style="margin-top: 12px; color: var(--text-secondary);">Esta acción no se puede deshacer.</p>`,
+        (confirmed) => {
+            if (confirmed) {
+                recipes = recipes.filter(r => r.id !== id);
+                localStorage.setItem('recipes', JSON.stringify(recipes));
+                closeRecipeModal();
+                renderRecipes();
+                showToast('Receta eliminada');
+            }
+        }
+    );
 }
 
 // Initialize
