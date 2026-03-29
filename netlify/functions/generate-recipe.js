@@ -39,7 +39,7 @@ exports.handler = async (event, context) => {
         'Authorization': `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'llama-3.1-70b-versatile', // Modelo gratuito y potente
+        model: 'openai/gpt-oss-120b', // Modelo gratuito y potente
         messages: [{
           role: 'user',
           content: `Crea UNA SOLA receta deliciosa usando SOLO estos ingredientes disponibles: ${ingredients}. 
