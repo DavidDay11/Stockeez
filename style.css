@@ -94,7 +94,6 @@ body {
     font-family: 'Outfit', sans-serif;
     font-size: 22px;
     font-weight: 600;
-    margin-bottom: -20px;
 }
 
 .btn {
@@ -148,7 +147,6 @@ body {
 .item-card {
     background: var(--bg-card);
     border-radius: 16px;
-    margin-top: 20px;
     padding: 16px;
     border: 1px solid var(--border);
     position: relative;
@@ -272,6 +270,11 @@ body {
     padding: 20px;
     overflow-y: auto;
     animation: fadeIn 0.2s;
+}
+
+/* Modal de confirmación debe estar por encima de otros modales */
+#confirmModal {
+    z-index: 1100;
 }
 
 .modal.active {

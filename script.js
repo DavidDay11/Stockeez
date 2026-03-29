@@ -175,6 +175,11 @@ const currencySymbols = {
     'UYU': 'UYU'
 };
 
+// Helper: Normalizar texto (quitar tildes para comparaciones)
+function normalizeText(text) {
+    return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 function getCurrencySymbol() {
     return currencySymbols[currentCurrency] || currentCurrency;
 }
@@ -1130,7 +1135,7 @@ async function generateRecipeWithAI() {
             `${item.name} (${item.stock} ${item.unit})`
         ).join(', ');
         
-        // Llamar a la Netlify Function 
+        // Llamar a la Netlify Function en lugar de directamente a Anthropic
         const response = await fetch('/.netlify/functions/generate-recipe', {
             method: 'POST',
             headers: {
@@ -1221,10 +1226,10 @@ function renderRecipes() {
 }
 
 function renderRecipeCard(recipe) {
-    const availableIngredients = items.filter(item => item.stock > 0).map(i => i.name.toLowerCase());
+    const availableIngredients = items.filter(item => item.stock > 0).map(i => normalizeText(i.name));
     const ingredientsPreview = recipe.ingredientes.slice(0, 3).map(ing => {
         const available = availableIngredients.some(ai => 
-            ai.includes(ing.nombre.toLowerCase()) || ing.nombre.toLowerCase().includes(ai)
+            ai.includes(normalizeText(ing.nombre)) || normalizeText(ing.nombre).includes(ai)
         );
         return `<span class="ingredient-tag ${available ? 'available' : ''}">${ing.nombre}</span>`;
     }).join('');
@@ -1278,11 +1283,11 @@ function viewRecipeDetail(id) {
     const recipe = recipes.find(r => r.id === id);
     if (!recipe) return;
     
-    const availableIngredients = items.filter(item => item.stock > 0).map(i => i.name.toLowerCase());
+    const availableIngredients = items.filter(item => item.stock > 0).map(i => normalizeText(i.name));
     
     const ingredientsList = recipe.ingredientes.map(ing => {
         const available = availableIngredients.some(ai => 
-            ai.includes(ing.nombre.toLowerCase()) || ing.nombre.toLowerCase().includes(ai)
+            ai.includes(normalizeText(ing.nombre)) || normalizeText(ing.nombre).includes(ai)
         );
         return `
             <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg-input); border-radius: 6px; margin-bottom: 6px;">
