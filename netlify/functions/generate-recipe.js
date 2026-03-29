@@ -1,5 +1,3 @@
-// Netlify Function para generar recetas con Groq AI (GRATIS)
-// Ubicación: netlify/functions/generate-recipe.js
 
 exports.handler = async (event, context) => {
   // Solo aceptar POST
@@ -39,7 +37,7 @@ exports.handler = async (event, context) => {
         'Authorization': `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-120b', // Modelo gratuito y potente
+        model: 'openai/gpt-oss-120b', 
         messages: [{
           role: 'user',
           content: `Crea UNA SOLA receta deliciosa usando SOLO estos ingredientes disponibles: ${ingredients}. 

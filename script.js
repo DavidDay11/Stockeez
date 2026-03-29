@@ -1130,7 +1130,7 @@ async function generateRecipeWithAI() {
             `${item.name} (${item.stock} ${item.unit})`
         ).join(', ');
         
-        // Llamar a la Netlify Function en lugar de directamente a Anthropic
+        // Llamar a la Netlify Function 
         const response = await fetch('/.netlify/functions/generate-recipe', {
             method: 'POST',
             headers: {

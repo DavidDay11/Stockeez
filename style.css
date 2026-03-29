@@ -147,6 +147,7 @@ body {
 .item-card {
     background: var(--bg-card);
     border-radius: 16px;
+    margin-top: 20px;
     padding: 16px;
     border: 1px solid var(--border);
     position: relative;
