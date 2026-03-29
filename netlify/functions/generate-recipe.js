@@ -1,4 +1,4 @@
-// Netlify Function para generar recetas con Claude AI
+// Netlify Function para generar recetas con Groq AI (GRATIS)
 // Ubicación: netlify/functions/generate-recipe.js
 
 exports.handler = async (event, context) => {
@@ -22,26 +22,24 @@ exports.handler = async (event, context) => {
     }
 
     // API key desde variables de entorno de Netlify
-    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-    if (!ANTHROPIC_API_KEY) {
+    if (!GROQ_API_KEY) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'API key no configurada en Netlify' })
+        body: JSON.stringify({ error: 'API key de Groq no configurada en Netlify' })
       };
     }
 
-    // Llamar a la API de Anthropic
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Llamar a la API de Groq
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'Authorization': `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 1500,
+        model: 'llama-3.1-70b-versatile', // Modelo gratuito y potente
         messages: [{
           role: 'user',
           content: `Crea UNA SOLA receta deliciosa usando SOLO estos ingredientes disponibles: ${ingredients}. 
@@ -66,23 +64,25 @@ Formato JSON requerido:
   "tiempo": "30 minutos",
   "porciones": "4 porciones"
 }`
-        }]
+        }],
+        temperature: 0.7,
+        max_tokens: 1500
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Error de Anthropic:', errorData);
+      console.error('Error de Groq:', errorData);
       return {
         statusCode: response.status,
         body: JSON.stringify({ 
-          error: `Error de Anthropic: ${errorData.error?.message || 'Error desconocido'}` 
+          error: `Error de Groq: ${errorData.error?.message || 'Error desconocido'}` 
         })
       };
     }
 
     const data = await response.json();
-    const recipeText = data.content[0].text;
+    const recipeText = data.choices[0].message.content;
 
     // Limpiar el texto de markdown y otros extras
     let cleanedText = recipeText.trim();
