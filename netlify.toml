@@ -1,0 +1,14 @@
+[build]
+  # No necesitamos build command porque es HTML/CSS/JS puro
+  publish = "."
+  
+[functions]
+  # Configuración de las Netlify Functions
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  # Redirigir 404s a index.html (para PWA)
+  from = "/*"
+  to = "/index.html"
+  status = 200
