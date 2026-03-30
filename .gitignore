@@ -4,7 +4,7 @@
 # Este archivo evita que subas información sensible a GitHub
 
 # Archivo de configuración con API keys
-#config.js
+config.js
 
 # Archivos del sistema
 .DS_Store
