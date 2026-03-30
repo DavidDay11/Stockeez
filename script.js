@@ -180,6 +180,76 @@ function normalizeText(text) {
     return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
+// Catálogo de productos comunes
+const productCatalog = {
+    'Carnes': [
+        { name: 'Carne picada', unit: 'kg', minStock: 0.5 },
+        { name: 'Pollo', unit: 'kg', minStock: 0.5 },
+        { name: 'Asado', unit: 'kg', minStock: 1 },
+        { name: 'Milanesas', unit: 'kg', minStock: 0.5 },
+        { name: 'Chorizo', unit: 'kg', minStock: 0.5 },
+        { name: 'Salchichas', unit: 'paquetes', minStock: 1 },
+        { name: 'Jamón cocido', unit: 'kg', minStock: 0.2 },
+        { name: 'Jamón crudo', unit: 'kg', minStock: 0.2 }
+    ],
+    'Lácteos': [
+        { name: 'Leche', unit: 'litros', minStock: 2 },
+        { name: 'Yogur', unit: 'unidades', minStock: 4 },
+        { name: 'Queso', unit: 'kg', minStock: 0.5 },
+        { name: 'Manteca', unit: 'unidades', minStock: 1 },
+        { name: 'Crema de leche', unit: 'unidades', minStock: 2 },
+        { name: 'Dulce de leche', unit: 'unidades', minStock: 1 }
+    ],
+    'Verduras': [
+        { name: 'Tomate', unit: 'kg', minStock: 1 },
+        { name: 'Cebolla', unit: 'kg', minStock: 1 },
+        { name: 'Papa', unit: 'kg', minStock: 2 },
+        { name: 'Zanahoria', unit: 'kg', minStock: 1 },
+        { name: 'Lechuga', unit: 'unidades', minStock: 1 },
+        { name: 'Morrón', unit: 'unidades', minStock: 2 },
+        { name: 'Ajo', unit: 'unidades', minStock: 2 },
+        { name: 'Zapallo', unit: 'kg', minStock: 1 }
+    ],
+    'Despensa': [
+        { name: 'Arroz', unit: 'kg', minStock: 1 },
+        { name: 'Fideos', unit: 'paquetes', minStock: 3 },
+        { name: 'Harina', unit: 'kg', minStock: 1 },
+        { name: 'Azúcar', unit: 'kg', minStock: 1 },
+        { name: 'Sal', unit: 'kg', minStock: 1 },
+        { name: 'Aceite', unit: 'litros', minStock: 1 },
+        { name: 'Yerba', unit: 'kg', minStock: 1 },
+        { name: 'Café', unit: 'paquetes', minStock: 1 },
+        { name: 'Té', unit: 'cajas', minStock: 1 },
+        { name: 'Polenta', unit: 'paquetes', minStock: 1 },
+        { name: 'Lenteja', unit: 'paquetes', minStock: 1 },
+        { name: 'Arvejas', unit: 'latas', minStock: 2 },
+        { name: 'Atún', unit: 'latas', minStock: 3 },
+        { name: 'Puré de tomate', unit: 'latas', minStock: 3 },
+        { name: 'Pan rallado', unit: 'paquetes', minStock: 1 }
+    ],
+    'Bebidas': [
+        { name: 'Agua', unit: 'litros', minStock: 6 },
+        { name: 'Gaseosa', unit: 'litros', minStock: 2 },
+        { name: 'Jugo', unit: 'litros', minStock: 2 },
+        { name: 'Vino', unit: 'botellas', minStock: 1 },
+        { name: 'Cerveza', unit: 'latas', minStock: 6 }
+    ],
+    'Higiene': [
+        { name: 'Papel higiénico', unit: 'unidades', minStock: 4 },
+        { name: 'Jabón', unit: 'unidades', minStock: 2 },
+        { name: 'Shampoo', unit: 'unidades', minStock: 1 },
+        { name: 'Dentífrico', unit: 'unidades', minStock: 1 },
+        { name: 'Desodorante', unit: 'unidades', minStock: 1 }
+    ],
+    'Limpieza': [
+        { name: 'Lavandina', unit: 'litros', minStock: 1 },
+        { name: 'Detergente', unit: 'unidades', minStock: 1 },
+        { name: 'Jabón en polvo', unit: 'kg', minStock: 1 },
+        { name: 'Suavizante', unit: 'litros', minStock: 1 },
+        { name: 'Limpia pisos', unit: 'litros', minStock: 1 }
+    ]
+};
+
 function getCurrencySymbol() {
     return currencySymbols[currentCurrency] || currentCurrency;
 }
@@ -439,6 +509,61 @@ function editItem(id) {
 
 function closeModal() {
     document.getElementById('itemModal').classList.remove('active');
+}
+
+// ========================================
+// PRODUCT CATALOG
+// ========================================
+
+function openCatalog() {
+    const container = document.getElementById('catalogContainer');
+    
+    let html = '';
+    
+    // Renderizar cada categoría
+    for (const [category, products] of Object.entries(productCatalog)) {
+        html += `
+            <div style="margin-bottom: 24px;">
+                <h4 style="font-family: 'Outfit', sans-serif; font-size: 16px; margin-bottom: 12px; color: var(--primary);">
+                    ${category}
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px;">
+                    ${products.map(product => `
+                        <button 
+                            type="button"
+                            class="catalog-item"
+                            onclick='selectFromCatalog(${JSON.stringify(product)}, "${category}")'
+                        >
+                            ${product.name}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+    document.getElementById('catalogModal').classList.add('active');
+}
+
+function closeCatalog() {
+    document.getElementById('catalogModal').classList.remove('active');
+}
+
+function selectFromCatalog(product, category) {
+    // Pre-llenar el formulario con el producto seleccionado
+    document.getElementById('itemName').value = product.name;
+    document.getElementById('itemCategory').value = category;
+    document.getElementById('itemUnit').value = product.unit;
+    document.getElementById('itemMinStock').value = product.minStock;
+    
+    // Cerrar catálogo
+    closeCatalog();
+    
+    // Enfocar en el campo de stock para que el usuario ingrese la cantidad
+    document.getElementById('itemStock').focus();
+    
+    showToast(`✓ ${product.name} seleccionado del catálogo`);
 }
 
 function populateCategorySelect() {

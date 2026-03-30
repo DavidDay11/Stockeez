@@ -151,6 +151,7 @@ body {
     border: 1px solid var(--border);
     position: relative;
     transition: transform 0.2s;
+    margin-bottom: 20px;
 }
 
 .item-card:active {
@@ -783,4 +784,28 @@ body {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+.catalog-item {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    padding: 12px 8px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text);
+    font-weight: 500;
+    text-align: center;
+}
+
+.catalog-item:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.catalog-item:active {
+    transform: translateY(0);
 }

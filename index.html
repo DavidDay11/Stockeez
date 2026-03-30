@@ -213,6 +213,13 @@
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
             
+            <!-- Botón para abrir catálogo -->
+            <div style="margin-bottom: 16px;">
+                <button type="button" class="btn btn-secondary" onclick="openCatalog()" style="width: 100%;">
+                    📋 Elegir del Catálogo
+                </button>
+            </div>
+            
             <form id="itemForm" onsubmit="saveItem(event)">
                 <div class="form-group">
                     <label class="form-label">Nombre</label>
@@ -302,6 +309,19 @@
         </div>
     </div>
 
+    <!-- Catalog Modal -->
+    <div id="catalogModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 class="modal-title">📋 Catálogo de Productos</h3>
+                <button class="close-btn" onclick="closeCatalog()">&times;</button>
+            </div>
+            <div style="max-height: 60vh; overflow-y: auto;">
+                <div id="catalogContainer"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bottom Navigation -->
     <div class="bottom-nav">
         <div class="nav-item active" onclick="switchPage('dashboard')">
@@ -329,6 +349,5 @@
     <!-- Scripts -->
     <script src="config.js"></script>
     <script src="script.js"></script>
-    
 </body>
 </html>
