@@ -131,6 +131,11 @@ body {
     color: white;
 }
 
+.btn-success {
+    background: var(--primary);
+    color: white;
+}
+
 .btn-small {
     padding: 8px 16px;
     font-size: 12px;
@@ -151,7 +156,6 @@ body {
     border: 1px solid var(--border);
     position: relative;
     transition: transform 0.2s;
-    margin-bottom: 20px;
 }
 
 .item-card:active {

@@ -180,6 +180,18 @@ function normalizeText(text) {
     return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
+// Ingredientes básicos que no requieren ✅/❌ (siempre disponibles en casa)
+const basicIngredients = [
+    'sal', 'pimienta', 'aceite', 'agua', 'ajo', 'cebolla',
+    'oregano', 'perejil', 'comino', 'pimenton', 'laurel',
+    'azucar', 'vinagre', 'limon', 'especias', 'condimentos'
+];
+
+function isBasicIngredient(ingredientName) {
+    const normalized = normalizeText(ingredientName);
+    return basicIngredients.some(basic => normalized.includes(basic));
+}
+
 // Catálogo de productos comunes
 const productCatalog = {
     'Carnes': [
@@ -350,6 +362,18 @@ function renderDashboard() {
                 </div>
             `;
             alertsHTML += expiringSoon.slice(0, 3).map(item => renderItemCard(item)).join('');
+        }
+        
+        // Sección de stock bajo (si hay)
+        if (lowStockItems.length > 0) {
+            alertsHTML += `
+                <div style="grid-column: 1 / -1; margin-bottom: 8px; margin-top: ${(expiredItems.length > 0 || expiringSoon.length > 0) ? '20px' : '0'};">
+                    <h3 style="font-family: 'Outfit', sans-serif; font-size: 16px; color: #FF6B6B; display: flex; align-items: center; gap: 8px;">
+                        <span>📦</span> Stock Bajo (${lowStockItems.length})
+                    </h3>
+                </div>
+            `;
+            alertsHTML += lowStockItems.slice(0, 3).map(item => renderItemCard(item)).join('');
         }
         
         alertsContainer.innerHTML = alertsHTML;
@@ -1411,6 +1435,17 @@ function viewRecipeDetail(id) {
     const availableIngredients = items.filter(item => item.stock > 0).map(i => normalizeText(i.name));
     
     const ingredientsList = recipe.ingredientes.map(ing => {
+        // Ingredientes básicos no muestran ✅/❌
+        if (isBasicIngredient(ing.nombre)) {
+            return `
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg-input); border-radius: 6px; margin-bottom: 6px;">
+                    <span style="font-size: 18px;">🧂</span>
+                    <span style="flex: 1;">${ing.cantidad} ${ing.nombre}</span>
+                    <span style="font-size: 11px; color: var(--text-secondary);">básico</span>
+                </div>
+            `;
+        }
+        
         const available = availableIngredients.some(ai => 
             ai.includes(normalizeText(ing.nombre)) || normalizeText(ing.nombre).includes(ai)
         );
@@ -1453,6 +1488,9 @@ function viewRecipeDetail(id) {
             <button class="btn btn-danger" onclick="deleteRecipe('${recipe.id}')" style="flex: 1;">
                 🗑️ Eliminar
             </button>
+            <button class="btn btn-success" onclick="useRecipe('${recipe.id}')" style="flex: 1;">
+                ✓ Usar Receta
+            </button>
             <button class="btn btn-primary" onclick="closeRecipeModal()" style="flex: 1;">
                 Cerrar
             </button>
@@ -1464,6 +1502,64 @@ function viewRecipeDetail(id) {
 
 function closeRecipeModal() {
     document.getElementById('recipeModal').classList.remove('active');
+}
+
+function useRecipe(id) {
+    const recipe = recipes.find(r => r.id === id);
+    if (!recipe) return;
+    
+    showConfirmModal(
+        '✓ Usar Receta',
+        `<p>¿Descontamos los ingredientes del stock para <strong>"${recipe.nombre}"</strong>?</p><p style="margin-top: 12px; color: var(--text-secondary);">Los ingredientes básicos (sal, aceite, etc) no se descontarán.</p>`,
+        (confirmed) => {
+            if (confirmed) {
+                let ingredientsUpdated = 0;
+                let ingredientsNotFound = [];
+                
+                // Descontar cada ingrediente del stock
+                recipe.ingredientes.forEach(ing => {
+                    // Ignorar ingredientes básicos
+                    if (isBasicIngredient(ing.nombre)) {
+                        return;
+                    }
+                    
+                    // Buscar el item en el inventario
+                    const item = items.find(i => {
+                        const itemNormalized = normalizeText(i.name);
+                        const ingNormalized = normalizeText(ing.nombre);
+                        return itemNormalized.includes(ingNormalized) || ingNormalized.includes(itemNormalized);
+                    });
+                    
+                    if (item && item.stock > 0) {
+                        // Parsear cantidad del ingrediente (ej: "200g" → 0.2kg)
+                        let cantidad = parseFloat(ing.cantidad);
+                        if (isNaN(cantidad)) cantidad = 1;
+                        
+                        // Descontar del stock
+                        item.stock = Math.max(0, item.stock - cantidad);
+                        ingredientsUpdated++;
+                    } else {
+                        ingredientsNotFound.push(ing.nombre);
+                    }
+                });
+                
+                // Guardar cambios
+                saveToStorage();
+                syncToFirebase();
+                renderDashboard();
+                renderItems();
+                renderShoppingList();
+                closeRecipeModal();
+                
+                // Mostrar resumen
+                let message = `✓ Stock actualizado (${ingredientsUpdated} ingredientes)`;
+                if (ingredientsNotFound.length > 0) {
+                    message += `\n⚠️ No encontrados: ${ingredientsNotFound.slice(0, 3).join(', ')}`;
+                }
+                showToast(message);
+            }
+        }
+    );
 }
 
 function deleteRecipe(id) {
